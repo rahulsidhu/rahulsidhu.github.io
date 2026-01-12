@@ -230,12 +230,14 @@ footer a:hover {
     vertical-align: middle;
 }
 
-.bluesky-link svg {
+.bluesky-icon {
+    width: 18px;
+    height: 18px;
     margin: 0 4px;
     transition: opacity 0.2s ease;
 }
 
-.bluesky-link:hover svg {
+.bluesky-link:hover .bluesky-icon {
     opacity: 0.7;
 }
 

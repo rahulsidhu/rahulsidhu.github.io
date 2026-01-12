@@ -20,38 +20,15 @@ body {
 
 /* Navigation */
 .navbar {
-    background-color: transparent;
-    color: #000;
-    padding: 0 0 2rem 0;
-    border-bottom: 1px solid #000;
-    margin-bottom: 2rem;
-}
-
-.navbar .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: none;
 }
 
 .nav-brand {
-    font-size: 1rem;
-    font-weight: normal;
+    display: none;
 }
 
 .nav-links {
-    display: flex;
-    list-style: none;
-    gap: 1.5rem;
-    font-size: 0.9rem;
-}
-
-.nav-links a {
-    color: #000;
-    text-decoration: none;
-}
-
-.nav-links a:hover {
-    text-decoration: underline;
+    display: none;
 }
 
 /* Main Content */
@@ -230,11 +207,20 @@ main {
 footer {
     background-color: transparent;
     color: #000;
-    text-align: left;
+    text-align: center;
     padding: 2rem 0 0 0;
     margin-top: 3rem;
-    border-top: 1px solid #000;
+    border-top: none;
     font-size: 0.9rem;
+}
+
+footer a {
+    color: #000;
+    text-decoration: underline;
+}
+
+footer a:hover {
+    opacity: 0.7;
 }
 
 /* Responsive Design */

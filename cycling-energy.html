@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyclist Energy Balance</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;1,300&display=swap');
+
+  :root {
+    --bg: #f4f1eb;
+    --bg2: #eae6de;
+    --ink: #1a1814;
+    --ink2: #5a5650;
+    --ink3: #9a9690;
+    --rule: #d4d0c8;
+    --aero: #c0392b;
+    --roll: #d4820a;
+    --grav: #2471a3;
+    --drive: #7d3c98;
+    --heat: #707070;
+    --accent: #2a6e3f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  h1 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-weight: 300;
+    font-size: 1.4rem;
+    letter-spacing: 0.02em;
+  }
+
+  h1 span {
+    font-style: italic;
+    color: var(--ink2);
+  }
+
+  .subtitle {
+    font-size: 0.72rem;
+    color: var(--ink3);
+    margin-top: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* CONTROLS */
+  .controls {
+    background: var(--bg2);
+    border: 1px solid var(--rule);
+    padding: 1.4rem;
+  }
+
+  .ctrl-section {
+    margin-bottom: 1.4rem;
+  }
+
+  .ctrl-section-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink3);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.4rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .ctrl-row {
+    margin-bottom: 0.75rem;
+  }
+
+  .ctrl-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.3rem;
+  }
+
+  .ctrl-name {
+    font-size: 0.72rem;
+    color: var(--ink2);
+  }
+
+  .ctrl-value {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--ink);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  input[type=range] {
+    width: 100%;
+    height: 3px;
+    -webkit-appearance: none;
+    background: var(--rule);
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--ink);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .preset-row {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+
+  .preset-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.62rem;
+    padding: 0.25rem 0.5rem;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--ink2);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all 0.15s;
+  }
+
+  .preset-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+    background: var(--bg);
+  }
+
+  /* RIGHT PANEL */
+  .viz-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* SUMMARY NUMBERS */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+
+  .summary-cell {
+    background: var(--bg);
+    padding: 0.9rem 0.8rem;
+  }
+
+  .summary-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink3);
+    margin-bottom: 0.35rem;
+  }
+
+  .summary-val {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .summary-unit {
+    font-size: 0.62rem;
+    color: var(--ink3);
+    font-weight: 300;
+    margin-top: 0.2rem;
+  }
+
+  /* SANKEY */
+  .sankey-wrap {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    padding: 1.2rem;
+  }
+
+  .sankey-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink3);
+    margin-bottom: 1rem;
+  }
+
+  svg.sankey {
+    width: 100%;
+    overflow: visible;
+  }
+
+  /* POWER SPLIT BAR */
+  .split-wrap {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    padding: 1.2rem;
+  }
+
+  .split-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink3);
+    margin-bottom: 0.8rem;
+  }
+
+  .split-bar-container {
+    height: 32px;
+    display: flex;
+    margin-bottom: 0.7rem;
+    overflow: hidden;
+  }
+
+  .split-seg {
+    height: 100%;
+    transition: width 0.35s ease;
+    position: relative;
+  }
+
+  .split-legend {
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.65rem;
+    color: var(--ink2);
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* SPEED CURVE */
+  .curve-wrap {
+    background: var(--bg);
+    border: 1px solid var(--rule);
+    padding: 1.2rem;
+  }
+
+  .curve-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink3);
+    margin-bottom: 0.8rem;
+  }
+
+  .tooltip {
+    position: fixed;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.65rem;
+    padding: 0.35rem 0.6rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 100;
+    white-space: nowrap;
+  }
+
+  .note {
+    font-size: 0.62rem;
+    color: var(--ink3);
+    margin-top: 0.5rem;
+    line-height: 1.6;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cyclist Energy Balance <span>— interactive</span></h1>
+  <div class="subtitle">Where does the power go? · Based on Whitt & Wilson, Bicycling Science (2004)</div>
+</header>
+
+<div class="layout">
+
+  <!-- CONTROLS -->
+  <div class="controls">
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Presets</div>
+      <div class="preset-row">
+        <button class="preset-btn" onclick="applyPreset('commuter')">Commuter</button>
+        <button class="preset-btn" onclick="applyPreset('racer')">Road racer</button>
+        <button class="preset-btn" onclick="applyPreset('cx')">Cyclocross</button>
+        <button class="preset-btn" onclick="applyPreset('mtb')">MTB</button>
+        <button class="preset-btn" onclick="applyPreset('climb')">Climbing</button>
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Rider & Bike</div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Rider mass</span>
+          <span class="ctrl-value" id="v-mr">75 kg</span>
+        </div>
+        <input type="range" id="s-mr" min="40" max="120" value="75" step="1" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Bike mass</span>
+          <span class="ctrl-value" id="v-mb">9 kg</span>
+        </div>
+        <input type="range" id="s-mb" min="4" max="20" value="9" step="0.5" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Metabolic efficiency</span>
+          <span class="ctrl-value" id="v-eff">25 %</span>
+        </div>
+        <input type="range" id="s-eff" min="18" max="30" value="25" step="1" oninput="update()">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Conditions</div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Speed</span>
+          <span class="ctrl-value" id="v-spd">25 km/h</span>
+        </div>
+        <input type="range" id="s-spd" min="5" max="60" value="25" step="1" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Gradient</span>
+          <span class="ctrl-value" id="v-gr">0.0 %</span>
+        </div>
+        <input type="range" id="s-gr" min="-8" max="15" value="0" step="0.5" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Headwind</span>
+          <span class="ctrl-value" id="v-wind">0 km/h</span>
+        </div>
+        <input type="range" id="s-wind" min="-20" max="30" value="0" step="1" oninput="update()">
+      </div>
+    </div>
+
+    <div class="ctrl-section">
+      <div class="ctrl-section-title">Equipment</div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">CdA (drag area)</span>
+          <span class="ctrl-value" id="v-cda">0.40 m²</span>
+        </div>
+        <input type="range" id="s-cda" min="0.18" max="0.65" value="0.40" step="0.01" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Crr (rolling resist.)</span>
+          <span class="ctrl-value" id="v-crr">0.0050</span>
+        </div>
+        <input type="range" id="s-crr" min="0.002" max="0.020" value="0.005" step="0.0005" oninput="update()">
+      </div>
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span class="ctrl-name">Drivetrain efficiency</span>
+          <span class="ctrl-value" id="v-dt">98 %</span>
+        </div>
+        <input type="range" id="s-dt" min="85" max="99" value="98" step="1" oninput="update()">
+      </div>
+    </div>
+
+  </div>
+
+  <!-- VIZ PANEL -->
+  <div class="viz-panel">
+
+    <!-- Summary -->
+    <div class="summary-grid">
+      <div class="summary-cell">
+        <div class="summary-label">Mechanical power</div>
+        <div class="summary-val" id="out-mech">—</div>
+        <div class="summary-unit">watts</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Food energy input</div>
+        <div class="summary-val" id="out-food">—</div>
+        <div class="summary-unit">watts (metabolic)</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Energy cost</div>
+        <div class="summary-val" id="out-kcal">—</div>
+        <div class="summary-unit">kcal / km</div>
+      </div>
+      <div class="summary-cell">
+        <div class="summary-label">Aero fraction</div>
+        <div class="summary-val" id="out-aerofrac">—</div>
+        <div class="summary-unit">of mechanical power</div>
+      </div>
+    </div>
+
+    <!-- Power split bar -->
+    <div class="split-wrap">
+      <div class="split-title">Mechanical power split</div>
+      <div class="split-bar-container" id="split-bar"></div>
+      <div class="split-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--aero)"></div>Aerodynamic drag</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--roll)"></div>Rolling resistance</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--grav)"></div>Gravity (grade)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--drive)"></div>Drivetrain loss</div>
+      </div>
+      <div id="split-vals" class="note" style="margin-top:0.7rem"></div>
+    </div>
+
+    <!-- Sankey -->
+    <div class="sankey-wrap">
+      <div class="sankey-title">Energy flow — food calories → motion</div>
+      <svg class="sankey" id="sankey-svg" viewBox="0 0 620 160"></svg>
+      <p class="note">~75% of metabolic energy is lost as body heat — an unavoidable consequence of muscle thermodynamics. Of the mechanical power delivered to the drivetrain, losses split between aerodynamic drag, rolling resistance, gravity, and drivetrain friction.</p>
+    </div>
+
+    <!-- Speed curve -->
+    <div class="curve-wrap">
+      <div class="curve-title">Power vs speed — with current settings (gradient & wind fixed)</div>
+      <svg id="curve-svg" viewBox="0 0 620 180" style="width:100%;overflow:visible"></svg>
+      <p class="note">Dashed vertical line = current speed. Note how aero drag (∝ v³) rapidly dominates at higher speeds while rolling resistance (∝ v) scales linearly.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const g = 9.81;
+const rho = 1.225; // kg/m³ air density
+
+function getParams() {
+  return {
+    mr: +document.getElementById('s-mr').value,
+    mb: +document.getElementById('s-mb').value,
+    eff: +document.getElementById('s-eff').value / 100,
+    spd: +document.getElementById('s-spd').value / 3.6,
+    gr: +document.getElementById('s-gr').value / 100,
+    wind: +document.getElementById('s-wind').value / 3.6,
+    cda: +document.getElementById('s-cda').value,
+    crr: +document.getElementById('s-crr').value,
+    dt: +document.getElementById('s-dt').value / 100,
+  };
+}
+
+function computePower(p, spd_ms) {
+  const m = p.mr + p.mb;
+  const vair = spd_ms + p.wind;
+  const P_aero = 0.5 * rho * p.cda * vair * vair * spd_ms;
+  const P_roll = p.crr * m * g * spd_ms;
+  const P_grav = m * g * p.gr * spd_ms;
+  const P_mech = Math.max(0, P_aero + P_roll + P_grav);
+  const P_drive_loss = P_mech * (1 - p.dt);
+  const P_total_mech = P_mech / p.dt;
+  const P_food = P_total_mech / p.eff;
+  return { P_aero, P_roll, P_grav, P_mech, P_drive_loss, P_total_mech, P_food };
+}
+
+function update() {
+  const p = getParams();
+
+  // Update display values
+  document.getElementById('v-mr').textContent = p.mr + ' kg';
+  document.getElementById('v-mb').textContent = p.mb + ' kg';
+  document.getElementById('v-eff').textContent = Math.round(p.eff*100) + ' %';
+  document.getElementById('v-spd').textContent = Math.round(p.spd*3.6) + ' km/h';
+  document.getElementById('v-gr').textContent = (p.gr*100).toFixed(1) + ' %';
+  document.getElementById('v-wind').textContent = Math.round(p.wind*3.6) + ' km/h';
+  document.getElementById('v-cda').textContent = p.cda.toFixed(2) + ' m²';
+  document.getElementById('v-crr').textContent = p.crr.toFixed(4);
+  document.getElementById('v-dt').textContent = Math.round(p.dt*100) + ' %';
+
+  const c = computePower(p, p.spd);
+
+  // Summary
+  document.getElementById('out-mech').textContent = Math.round(c.P_total_mech);
+  document.getElementById('out-food').textContent = Math.round(c.P_food);
+  const kcal_per_km = c.P_food / (p.spd * 1000 / 3600) / 1000 * (1/4.184) * 1000;
+  // P_food in W = J/s. Per km: J/km = P_food/spd_ms * 1000... 
+  // kcal/km = P_food(W) / v(m/s) / 4184
+  const kcalkm = c.P_food / p.spd / 4184;
+  document.getElementById('out-kcal').textContent = kcalkm.toFixed(2);
+  const aerofrac = c.P_mech > 0 ? c.P_aero / c.P_mech * 100 : 0;
+  document.getElementById('out-aerofrac').textContent = Math.round(aerofrac) + '%';
+
+  // Split bar
+  const bar = document.getElementById('split-bar');
+  if (c.P_mech > 0) {
+    const fa = c.P_aero / c.P_mech * 100;
+    const fr = c.P_roll / c.P_mech * 100;
+    const fg = Math.max(0, c.P_grav / c.P_mech * 100);
+    const fd = c.P_drive_loss / c.P_mech * 100;
+    const rest = Math.max(0, 100 - fa - fr - fg - fd);
+    bar.innerHTML = `
+      <div class="split-seg" style="width:${fa}%;background:var(--aero)" title="Aero"></div>
+      <div class="split-seg" style="width:${fr}%;background:var(--roll)" title="Roll"></div>
+      <div class="split-seg" style="width:${fg}%;background:var(--grav)" title="Grav"></div>
+      <div class="split-seg" style="width:${fd}%;background:var(--drive)" title="Drive"></div>
+    `;
+    document.getElementById('split-vals').textContent =
+      `Aero: ${fa.toFixed(1)}%  ·  Rolling: ${fr.toFixed(1)}%  ·  Gravity: ${fg.toFixed(1)}%  ·  Drivetrain: ${fd.toFixed(1)}%`;
+  }
+
+  // Sankey
+  drawSankey(c, p);
+
+  // Speed curve
+  drawCurve(p);
+}
+
+function drawSankey(c, p) {
+  const svg = document.getElementById('sankey-svg');
+  const W = 620, H = 160;
+  const pad = 30;
+
+  const P_food = c.P_food || 1;
+  const P_heat = P_food * (1 - p.eff);
+  const P_mech = c.P_total_mech;
+
+  // Node x positions
+  const x0 = pad;         // food input
+  const x1 = W * 0.38;   // split: heat vs mech
+  const x2 = W * 0.65;   // split: aero/roll/grav/drive
+  const x3 = W - pad;
+
+  const totalH = H - 20;
+  const cy = H / 2;
+
+  // Widths proportional to power
+  const foodW = totalH;
+  const heatW = (P_heat / P_food) * totalH;
+  const mechW = (P_mech / P_food) * totalH;
+
+  const aeroW = (c.P_aero / P_food) * totalH;
+  const rollW = (c.P_roll / P_food) * totalH;
+  const gravW = (Math.max(0, c.P_grav) / P_food) * totalH;
+  const driveW = (c.P_drive_loss / P_food) * totalH;
+  const usefulW = Math.max(0, mechW - aeroW - rollW - gravW - driveW);
+
+  function sankey_path(x1, y1h, x2, y2top, y2h, col, opacity=0.7) {
+    const cp = (x2 - x1) * 0.5;
+    const y1t = y1h - y1h; // top of input band
+    // simplified: draw as bezier ribbon
+    const t = y1h / 2; // half thickness at source
+    const yt = cy - t;
+    const yb = cy + t;
+    const yt2 = y2top;
+    const yb2 = y2top + y2h;
+    return `<path d="M${x1},${yt} C${x1+cp},${yt} ${x2-cp},${yt2} ${x2},${yt2} 
+                     L${x2},${yb2} C${x2-cp},${yb2} ${x1+cp},${yb} ${x1},${yb} Z"
+              fill="${col}" opacity="${opacity}"/>`;
+  }
+
+  // Build SVG
+  let out = '';
+
+  // Food node
+  out += `<rect x="${x0-6}" y="${cy-foodW/2}" width="12" height="${foodW}" fill="var(--accent)" rx="2"/>`;
+  out += `<text x="${x0-10}" y="${cy+4}" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--ink2)">Food</text>`;
+  out += `<text x="${x0-10}" y="${cy+16}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="var(--ink3)">${Math.round(P_food)}W</text>`;
+
+  // Heat branch (top)
+  const heatTop = cy - foodW/2;
+  out += sankey_path(x1, heatW, x2, heatTop, heatW, 'var(--heat)', 0.35);
+  out += `<rect x="${x2-3}" y="${heatTop}" width="6" height="${heatW}" fill="var(--heat)" rx="1" opacity="0.5"/>`;
+  out += `<text x="${x2+10}" y="${heatTop + heatW/2 + 4}" font-family="IBM Plex Mono" font-size="9" fill="var(--ink3)">Body heat ${Math.round(P_heat)}W</text>`;
+
+  // Mech branch
+  const mechTop = cy - foodW/2 + heatW + 2;
+  // sub-branches at x3
+  let subY = mechTop;
+
+  function sub(pw, col, label) {
+    const h = (pw / P_food) * totalH;
+    if (h < 1) return '';
+    let s = sankey_path(x2, mechW, x3, subY, h, col, 0.65);
+    s += `<rect x="${x3-3}" y="${subY}" width="6" height="${h}" fill="${col}" rx="1"/>`;
+    s += `<text x="${x3+10}" y="${subY + h/2 + 4}" font-family="IBM Plex Mono" font-size="9" fill="var(--ink2)">${label} ${Math.round(pw)}W</text>`;
+    subY += h + 1;
+    return s;
+  }
+
+  // Mech node
+  out += `<rect x="${x2-6}" y="${mechTop}" width="12" height="${mechW}" fill="var(--accent)" rx="2" opacity="0.6"/>`;
+
+  // Food → mech ribbon
+  out += sankey_path(x1, mechW, x2, mechTop, mechW, 'var(--accent)', 0.25);
+
+  // Sub-branches
+  out += sub(c.P_aero, 'var(--aero)', 'Aero drag');
+  out += sub(c.P_roll, 'var(--roll)', 'Rolling');
+  out += sub(Math.max(0, c.P_grav), 'var(--grav)', 'Gravity');
+  out += sub(c.P_drive_loss, 'var(--drive)', 'Drivetrain');
+
+  // Labels at x1
+  out += `<text x="${x1}" y="${H-4}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="var(--ink3)">Muscle</text>`;
+  out += `<text x="${x2}" y="${H-4}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="var(--ink3)">Wheel</text>`;
+
+  svg.innerHTML = out;
+}
+
+function drawCurve(p) {
+  const svg = document.getElementById('curve-svg');
+  const W = 620, H = 180;
+  const padL = 50, padR = 20, padT = 15, padB = 35;
+  const cW = W - padL - padR;
+  const cH = H - padT - padB;
+
+  const maxV = 55; // km/h
+  const steps = 100;
+
+  let aeroPs = [], rollPs = [], gravPs = [], totalPs = [];
+  for (let i = 0; i <= steps; i++) {
+    const v = (i / steps) * maxV / 3.6;
+    const vair = v + p.wind;
+    const m = p.mr + p.mb;
+    const Pa = 0.5 * rho * p.cda * vair * vair * v;
+    const Pr = p.crr * m * g * v;
+    const Pg = Math.max(0, m * g * p.gr * v);
+    aeroPs.push(Pa);
+    rollPs.push(Pr);
+    gravPs.push(Pg);
+    totalPs.push((Pa + Pr + Pg) / p.dt);
+  }
+
+  const maxP = Math.max(...totalPs, 10);
+  const scaleX = i => padL + (i / steps) * cW;
+  const scaleY = p => padT + cH - (p / maxP) * cH;
+
+  function makePath(vals, offset_vals) {
+    // stacked: offset_vals is the base
+    let d = '';
+    for (let i = 0; i <= steps; i++) {
+      const x = scaleX(i);
+      const y = scaleY((offset_vals ? offset_vals[i] : 0) + vals[i]);
+      d += (i === 0 ? 'M' : 'L') + x + ',' + y;
+    }
+    if (offset_vals) {
+      for (let i = steps; i >= 0; i--) {
+        const x = scaleX(i);
+        const y = scaleY(offset_vals[i]);
+        d += 'L' + x + ',' + y;
+      }
+      d += 'Z';
+    }
+    return d;
+  }
+
+  // Y axis ticks
+  let ticks = '';
+  const nTicks = 5;
+  for (let i = 0; i <= nTicks; i++) {
+    const pv = (i / nTicks) * maxP;
+    const y = scaleY(pv);
+    ticks += `<line x1="${padL}" y1="${y}" x2="${padL + cW}" y2="${y}" stroke="#d4d0c8" stroke-width="0.5"/>`;
+    ticks += `<text x="${padL - 5}" y="${y + 4}" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="#9a9690">${Math.round(pv)}</text>`;
+  }
+
+  // X axis ticks
+  for (let v = 0; v <= maxV; v += 10) {
+    const xi = (v / maxV) * steps;
+    const x = scaleX(xi);
+    ticks += `<line x1="${x}" y1="${padT}" x2="${x}" y2="${padT + cH}" stroke="#d4d0c8" stroke-width="0.5"/>`;
+    ticks += `<text x="${x}" y="${padT + cH + 14}" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="#9a9690">${v}</text>`;
+  }
+
+  // Current speed line
+  const curV_kmh = p.spd * 3.6;
+  const curX = padL + (curV_kmh / maxV) * cW;
+
+  // Stacked areas
+  const zeros = new Array(steps + 1).fill(0);
+  const rollBase = aeroPs;
+  const gravBase = aeroPs.map((a, i) => a + rollPs[i]);
+
+  let out = ticks;
+  out += `<path d="${makePath(aeroPs, zeros)}" fill="var(--aero)" opacity="0.25"/>`;
+  out += `<path d="${makePath(rollPs, aeroPs)}" fill="var(--roll)" opacity="0.25"/>`;
+  out += `<path d="${makePath(gravPs, gravBase)}" fill="var(--grav)" opacity="0.25"/>`;
+
+  // Total line
+  let totalPath = '';
+  for (let i = 0; i <= steps; i++) {
+    const x = scaleX(i);
+    const y = scaleY(totalPs[i]);
+    totalPath += (i === 0 ? 'M' : 'L') + x + ',' + y;
+  }
+  out += `<path d="${totalPath}" fill="none" stroke="var(--ink)" stroke-width="1.5"/>`;
+
+  // Current speed marker
+  out += `<line x1="${curX}" y1="${padT}" x2="${curX}" y2="${padT + cH}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="4,3"/>`;
+
+  // Axes
+  out += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + cH}" stroke="var(--ink)" stroke-width="1"/>`;
+  out += `<line x1="${padL}" y1="${padT + cH}" x2="${padL + cW}" y2="${padT + cH}" stroke="var(--ink)" stroke-width="1"/>`;
+
+  // Labels
+  out += `<text x="${padL + cW/2}" y="${H - 2}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="var(--ink3)">Speed (km/h)</text>`;
+  out += `<text x="12" y="${padT + cH/2}" text-anchor="middle" font-family="IBM Plex Mono" font-size="10" fill="var(--ink3)" transform="rotate(-90,12,${padT + cH/2})">Power (W)</text>`;
+
+  svg.innerHTML = out;
+}
+
+const presets = {
+  commuter: { mr:80, mb:12, eff:25, spd:18, gr:0, wind:0, cda:0.55, crr:0.006, dt:96 },
+  racer:    { mr:68, mb:7,  eff:26, spd:38, gr:0, wind:0, cda:0.24, crr:0.003, dt:98 },
+  cx:       { mr:72, mb:9,  eff:25, spd:25, gr:1, wind:5, cda:0.40, crr:0.012, dt:97 },
+  mtb:      { mr:80, mb:13, eff:24, spd:18, gr:3, wind:0, cda:0.50, crr:0.015, dt:95 },
+  climb:    { mr:65, mb:7,  eff:26, spd:14, gr:8, wind:0, cda:0.32, crr:0.003, dt:98 },
+};
+
+function applyPreset(name) {
+  const pr = presets[name];
+  document.getElementById('s-mr').value = pr.mr;
+  document.getElementById('s-mb').value = pr.mb;
+  document.getElementById('s-eff').value = pr.eff;
+  document.getElementById('s-spd').value = pr.spd;
+  document.getElementById('s-gr').value = pr.gr;
+  document.getElementById('s-wind').value = pr.wind;
+  document.getElementById('s-cda').value = pr.cda;
+  document.getElementById('s-crr').value = pr.crr;
+  document.getElementById('s-dt').value = pr.dt;
+  update();
+}
+
+update();
+</script>
+</body>
+</html>

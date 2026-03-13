@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Cyclist Energy Flow</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#f6f4ef;
+  --card:#ffffff;
+  --ink:#2b2b2b;
+  --muted:#6b7280;
+
+  --met:#c084fc;
+  --heat:#e5e7eb;
+  --aero:#7aa2c7;
+  --roll:#8fbfa3;
+  --grav:#d6b36a;
+  --ke:#f59e0b;
+}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:Inter, system-ui, sans-serif;
+}
+
+.wrap{max-width:1100px;margin:auto;padding:24px;}
+h1{font-family:"Source Serif 4",serif;font-weight:600;margin-bottom:12px;}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media(max-width:900px){.grid{grid-template-columns:1fr;}}
+
+.card{
+  background:var(--card);
+  border-radius:14px;
+  padding:18px;
+  box-shadow:0 8px 24px rgba(0,0,0,.06);
+}
+
+.row{display:grid;grid-template-columns:1fr 120px;gap:10px;align-items:center;margin:8px 0;}
+label{font-size:13px;color:var(--muted);}
+input[type=range]{grid-column:1/-1;}
+select{grid-column:1/-1;padding:6px;}
+
+.val{text-align:right;font-variant-numeric:tabular-nums;}
+.big{font-size:28px;font-weight:600;}
+.sub{font-size:13px;color:var(--muted);}
+
+svg{width:100%;height:300px;}
+.note{font-size:12px;color:var(--muted);line-height:1.4;}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+<h1>Cyclist energy flow</h1>
+
+<div class="grid">
+
+<div class="card">
+  <div class="row">
+    <label>Scenario</label>
+    <div></div>
+    <select id="preset">
+      <option value="road">Road race</option>
+      <option value="tt">Time trial</option>
+      <option value="tour">Loaded touring</option>
+      <option value="trailer">Child trailer</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label>Mode</label>
+    <div></div>
+    <select id="mode">
+      <option value="steady">Steady‑state</option>
+      <option value="dynamic">Acceleration</option>
+    </select>
+  </div>
+
+  <div class="row"><label>Metabolic power (W)</label><div class="val" id="metVal"></div>
+    <input id="met" type="range" min="200" max="1200" value="800"></div>
+
+  <div class="row"><label>Gross efficiency</label><div class="val" id="effVal"></div>
+    <input id="eff" type="range" min="0.18" max="0.26" step="0.005" value="0.23"></div>
+
+  <div class="row"><label>Mass (kg)</label><div class="val" id="mVal"></div>
+    <input id="mass" type="range" min="60" max="140" step="0.5" value="85"></div>
+
+  <div class="row"><label>CdA (m²)</label><div class="val" id="cdaVal"></div>
+    <input id="cda" type="range" min="0.2" max="0.6" step="0.01" value="0.32"></div>
+
+  <div class="row"><label>Drafting (%)</label><div class="val" id="draftVal"></div>
+    <input id="draft" type="range" min="0" max="50" value="0"></div>
+
+  <div class="row"><label>Crr</label><div class="val" id="crrVal"></div>
+    <input id="crr" type="range" min="0.002" max="0.01" step="0.0005" value="0.004"></div>
+
+  <div class="row"><label>Gradient (%)</label><div class="val" id="gVal"></div>
+    <input id="grade" type="range" min="-10" max="20" step="0.1" value="0"></div>
+</div>
+
+<div class="card">
+  <div class="big"><span id="speed"></span> km/h</div>
+  <div class="sub">Current speed</div>
+
+  <svg viewBox="0 0 700 300">
+    <path id="metFlow" fill="var(--met)"/>
+    <path id="heatFlow" fill="var(--heat)"/>
+    <path id="aeroFlow" fill="var(--aero)"/>
+    <path id="rollFlow" fill="var(--roll)"/>
+    <path id="gravFlow" fill="var(--grav)"/>
+    <path id="keFlow" fill="var(--ke)"/>
+  </svg>
+
+  <div class="note">
+    Metabolic → mechanical → resistive losses. In acceleration mode, surplus power fills kinetic energy.
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+const g=9.81, rho=1.225;
+const el=id=>document.getElementById(id);
+
+let state={v:0};
+
+function sankey(x0,y0,x1,y1,w){
+  return `M${x0},${y0-w/2} C${x0+80},${y0-w/2} ${x1-80},${y1-w/2} ${x1},${y1-w/2}
+          L${x1},${y1+w/2} C${x1-80},${y1+w/2} ${x0+80},${y0+w/2} ${x0},${y0+w/2}Z`;
+}
+
+function resist(v,p){
+  const th=Math.atan(p.grade/100);
+  const cdaEff=p.cda*(1-p.draft/100);
+  return {
+    aero:0.5*rho*cdaEff*v*v*v,
+    roll:p.crr*p.mass*g*Math.cos(th)*v,
+    grav:p.mass*g*Math.sin(th)*v
+  };
+}
+
+function update(){
+  const p={
+    met:+el("met").value,
+    eff:+el("eff").value,
+    mass:+el("mass").value,
+    cda:+el("cda").value,
+    draft:+el("draft").value,
+    crr:+el("crr").value,
+    grade:+el("grade").value
+  };
+
+  el("metVal").textContent=p.met.toFixed(0);
+  el("effVal").textContent=p.eff.toFixed(3);
+  el("mVal").textContent=p.mass.toFixed(1);
+  el("cdaVal").textContent=p.cda.toFixed(2);
+  el("draftVal").textContent=p.draft.toFixed(0);
+  el("crrVal").textContent=p.crr.toFixed(4);
+  el("gVal").textContent=p.grade.toFixed(1);
+
+  const Pmech=p.met*p.eff;
+  const R=resist(state.v,p);
+  const Pres=R.aero+R.roll+R.grav;
+  const surplus=Pmech-Pres;
+
+  if(el("mode").value==="dynamic"){
+    const dt=0.1;
+    state.v=Math.max(0,state.v+surplus/(p.mass*state.v+1)*dt);
+  }else{
+    state.v=0;
+    for(let i=0;i<60;i++){
+      const v=(i/60)*40;
+      if(resist(v,p).aero+resist(v,p).roll+resist(v,p).grav>Pmech){state.v=v;break;}
+    }
+  }
+
+  el("speed").textContent=(state.v*3.6).toFixed(1);
+
+  const s=0.25;
+  el("metFlow").setAttribute("d",sankey(40,150,200,150,p.met*s));
+  el("heatFlow").setAttribute("d",sankey(200,150,320,80,(p.met-Pmech)*s));
+  el("aeroFlow").setAttribute("d",sankey(320,150,560,80,R.aero*s));
+  el("rollFlow").setAttribute("d",sankey(320,150,560,150,R.roll*s));
+  el("gravFlow").setAttribute("d",sankey(320,150,560,220,Math.abs(R.grav)*s));
+  el("keFlow").setAttribute("d",sankey(320,150,560,260,Math.max(0,surplus)*s));
+}
+
+setInterval(update,100);
+</script>
+</body>
+</html>

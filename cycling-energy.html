@@ -477,7 +477,7 @@ footer {
       <!-- Sankey -->
       <div class="card">
         <div class="card-title">Energy flow — food calories → motion</div>
-        <svg class="chart" id="sankey-svg" viewBox="0 0 620 155"></svg>
+        <svg class="chart" id="sankey-svg" viewBox="0 0 680 250"></svg>
         <p class="note">
           ~75% of metabolic energy exits as body heat — an unavoidable consequence of muscle thermodynamics (human muscles operate at roughly 25% mechanical efficiency at optimal cadence).
           <br><br>
@@ -588,56 +588,75 @@ function upd() {
   drawCurve(p, rho);
 }
 
+
 function drawSankey(c, p) {
-  const W = 620, H = 155, TH = 115;
-  const xA = 65, xB = 230, xC = 400;
-  const yTop = 18, Pf = c.Pf || 1;
+  const Pf = c.Pf || 1;
+  const nW = 6;
+  const xA = 55, xB = 240, xC = 470;
+  const TH = 108;
 
-  const heatH  = (c.Pf * (1 - p.eff) / Pf) * TH;
-  const mechH  = (c.Ptm / Pf) * TH;
-  const mechTop = yTop + heatH + 3;
+  const heatH = Math.max(4, (c.Pf * (1 - p.eff) / Pf) * TH);
+  const mechH_A = TH - heatH;
 
-  function ribbon(st, sh, dt, dh, x1, x2, col, op) {
-    const cp = (x2 - x1) * 0.45;
-    const sb = st + sh, db = dt + dh;
-    return `<path d="M${x1},${st} C${x1+cp},${st} ${x2-cp},${dt} ${x2},${dt} L${x2},${db} C${x2-cp},${db} ${x1+cp},${sb} ${x1},${sb} Z" fill="${col}" opacity="${op}"/>`;
+  const yTop = heatH + 18;
+  const mechTop_A = yTop + heatH;
+
+  const heatDest_top = yTop - heatH;
+  const heatDest_bot = yTop;
+
+  function ribbon(st, sb, dt, db, x1, x2, col, op) {
+    const mx = (x1 + x2) / 2;
+    return `<path fill="${col}" opacity="${op}" stroke="none" d="`
+      + `M${x1},${st} C${mx},${st} ${mx},${dt} ${x2},${dt} `
+      + `L${x2},${db} C${mx},${db} ${mx},${sb} ${x1},${sb} Z"/>`;
   }
 
   let o = '';
 
   // Food node
-  o += `<rect x="${xA-7}" y="${yTop}" width="14" height="${TH}" fill="${CSS.escape ? '#2a6e3f' : '#2a6e3f'}" rx="3" fill="#2a6e3f"/>`;
-  o += `<text x="${xA-13}" y="${yTop + TH/2 - 5}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="#5a5650">Food</text>`;
-  o += `<text x="${xA-13}" y="${yTop + TH/2 + 9}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">${Math.round(c.Pf)}W</text>`;
+  o += `<rect x="${xA-nW}" y="${yTop}" width="${nW*2}" height="${TH}" rx="2" fill="#2a6e3f"/>`;
+  o += `<text x="${xA-nW-7}" y="${yTop+TH/2-5}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="#5a5650">Food</text>`;
+  o += `<text x="${xA-nW-7}" y="${yTop+TH/2+9}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">${Math.round(Pf)}W</text>`;
 
-  // Heat ribbon
-  o += ribbon(yTop, heatH, yTop, heatH, xA, xB, '#888', 0.28);
-  o += `<rect x="${xB-5}" y="${yTop}" width="10" height="${heatH}" fill="#888" rx="2" opacity="0.45"/>`;
-  o += `<text x="${xB+12}" y="${yTop + heatH/2 + 4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">Body heat  ${Math.round(c.Pf*(1-p.eff))}W</text>`;
+  // A→B ribbons
+  o += ribbon(yTop, yTop+heatH,  heatDest_top, heatDest_bot,  xA+nW, xB-nW, '#888', 0.35);
+  o += ribbon(mechTop_A, yTop+TH,  mechTop_A, yTop+TH,  xA+nW, xB-nW, '#2a6e3f', 0.32);
 
-  // Mech ribbon
-  o += ribbon(yTop + heatH, mechH, mechTop, mechH, xA, xB, '#2a6e3f', 0.22);
-  o += `<rect x="${xB-5}" y="${mechTop}" width="10" height="${mechH}" fill="#2a6e3f" rx="2" opacity="0.45"/>`;
+  // Body heat node — same scale
+  o += `<rect x="${xB-nW}" y="${heatDest_top}" width="${nW*2}" height="${heatH}" rx="2" fill="#888"/>`;
+  o += `<text x="${xB+nW+7}" y="${heatDest_top+heatH/2+4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">Body heat  ${Math.round(c.Pf*(1-p.eff))}W</text>`;
 
-  // Sub-branches
-  let sy = mechTop;
-  function sub(pw, col, lbl) {
-    const h = (pw / Pf) * TH;
-    if (h < 1.5) return;
-    o += ribbon(sy, h, sy, h, xB, xC, col, 0.55);
-    o += `<rect x="${xC-5}" y="${sy}" width="10" height="${h}" fill="${col}" rx="2" opacity="0.8"/>`;
-    o += `<text x="${xC+13}" y="${sy + h/2 + 4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#5a5650">${lbl}  ${Math.round(pw)}W</text>`;
-    sy += h + 1.5;
+  // Mech node
+  o += `<rect x="${xB-nW}" y="${mechTop_A}" width="${nW*2}" height="${mechH_A}" rx="2" fill="#2a6e3f"/>`;
+
+  // B→C: same scale on both sides (mechH_A), but dest positions are spread by adding
+  // a gap between each flow so they separate visually like the heat/mech split above.
+  const GAP = 8; // px gap between output flows
+  const subs = [
+    { pw: c.Pa,              col: '#c0392b', lbl: 'Aero drag' },
+    { pw: c.Pr,              col: '#c47a0a', lbl: 'Rolling' },
+    { pw: Math.max(0, c.Pg), col: '#1a6090', lbl: 'Gravity' },
+    { pw: c.Pdl,             col: '#6c3483', lbl: 'Drivetrain' },
+  ].filter(s => c.Ptm > 0 && (s.pw / c.Ptm) * mechH_A >= 2);
+
+  // Total dest height = mechH_A + gaps between flows
+  const totalGap = GAP * (subs.length - 1);
+  // Each flow's dest height scales to fill mechH_A + totalGap proportionally
+  const destScale = (mechH_A + totalGap) / mechH_A;
+
+  let sy = mechTop_A, dy = mechTop_A;
+  for (const s of subs) {
+    const sh = (s.pw / c.Ptm) * mechH_A;           // source height — same scale
+    const dh = (s.pw / c.Ptm) * mechH_A * destScale; // dest height — slightly expanded to add gaps
+    o += ribbon(sy, sy+sh, dy, dy+dh, xB+nW, xC-nW, s.col, 0.5);
+    o += `<rect x="${xC-nW}" y="${dy}" width="${nW*2}" height="${dh}" rx="2" fill="${s.col}" opacity="0.9"/>`;
+    o += `<text x="${xC+nW+7}" y="${dy+dh/2+4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#5a5650">${s.lbl}  ${Math.round(s.pw)}W</text>`;
+    sy += sh;
+    dy += dh + GAP;
   }
 
-  sub(c.Pa,               '#c0392b', 'Aero drag');
-  sub(c.Pr,               '#c47a0a', 'Rolling');
-  sub(Math.max(0, c.Pg),  '#1a6090', 'Gravity');
-  sub(c.Pdl,              '#6c3483', 'Drivetrain');
-
-  // Column labels
-  o += `<text x="${xB}" y="${H - 3}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">muscle</text>`;
-  o += `<text x="${xC}" y="${H - 3}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">wheel</text>`;
+  o += `<text x="${xB}" y="${yTop+TH+15}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">muscle output</text>`;
+  o += `<text x="${xC}" y="${yTop+TH+totalGap+15}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">at wheel</text>`;
 
   document.getElementById('sankey-svg').innerHTML = o;
 }

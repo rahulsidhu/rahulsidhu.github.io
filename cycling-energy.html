@@ -1,773 +1,645 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Interactive cyclist energy balance calculator. Explore how power splits between aerodynamic drag, rolling resistance, gravity, and drivetrain loss across varying conditions.">
-<title>Cyclist Energy Balance — Interactive</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:     #f4f1eb;
-  --bg2:    #ece8e0;
-  --bg3:    #e4e0d8;
-  --ink:    #1a1814;
-  --ink2:   #5a5650;
-  --ink3:   #9a9690;
-  --rule:   #d0ccc4;
-  --aero:   #c0392b;
-  --roll:   #c47a0a;
-  --grav:   #1a6090;
-  --drive:  #6c3483;
-  --heat:   #707070;
-  --accent: #2a6e3f;
-  --max-w:  1100px;
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html { scroll-behavior: smooth; }
-
-body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  min-height: 100vh;
-}
-
-/* ── HEADER ── */
-.site-header {
-  border-bottom: 2px solid var(--ink);
-  padding: 2rem;
-  max-width: var(--max-w);
-  margin: 0 auto;
-}
-
-.site-header h1 {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 300;
-  font-size: clamp(1.2rem, 3vw, 1.7rem);
-  letter-spacing: 0.01em;
-  line-height: 1.2;
-}
-
-.site-header h1 em {
-  font-style: italic;
-  color: var(--ink2);
-}
-
-.site-header .subtitle {
-  margin-top: 0.4rem;
-  font-size: 0.7rem;
-  color: var(--ink3);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-/* ── MAIN LAYOUT ── */
-main {
-  max-width: var(--max-w);
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
-  align-items: start;
-}
-
-@media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; }
-}
-
-/* ── CONTROLS PANEL ── */
-.controls {
-  background: var(--bg2);
-  border: 1px solid var(--rule);
-  padding: 1.4rem;
-}
-
-.ctrl-section { margin-bottom: 1.4rem; }
-.ctrl-section:last-child { margin-bottom: 0; }
-
-.ctrl-section-title {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--ink3);
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.9rem;
-}
-
-.ctrl-row { margin-bottom: 0.8rem; }
-
-.ctrl-label {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 0.25rem;
-}
-
-.ctrl-name { font-size: 0.72rem; color: var(--ink2); }
-
-.ctrl-value {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--ink);
-  min-width: 72px;
-  text-align: right;
-}
-
-input[type=range] {
-  width: 100%;
-  height: 3px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--rule);
-  outline: none;
-  cursor: pointer;
-  border-radius: 2px;
-}
-
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 13px;
-  height: 13px;
-  background: var(--ink);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-input[type=range]:hover::-webkit-slider-thumb { background: var(--accent); }
-input[type=range]::-moz-range-thumb {
-  width: 13px; height: 13px;
-  background: var(--ink);
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-}
-
-.rho-display {
-  font-size: 0.68rem;
-  color: var(--ink3);
-  margin-top: 0.25rem;
-  font-style: italic;
-}
-
-.preset-row {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  margin-top: 0.3rem;
-}
-
-.preset-btn {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.62rem;
-  padding: 0.2rem 0.55rem;
-  background: transparent;
-  border: 1px solid var(--rule);
-  color: var(--ink2);
-  cursor: pointer;
-  letter-spacing: 0.03em;
-  transition: all 0.12s;
-  border-radius: 2px;
-}
-
-.preset-btn:hover {
-  border-color: var(--ink);
-  color: var(--ink);
-  background: var(--bg);
-}
-
-.preset-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--bg);
-}
-
-/* ── VIZ PANEL ── */
-.viz-panel { display: flex; flex-direction: column; gap: 1.4rem; }
-
-/* ── SUMMARY METRICS ── */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--rule);
-  border: 1px solid var(--rule);
-}
-
-@media (max-width: 900px) {
-  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-}
-
-.metric-cell {
-  background: var(--bg);
-  padding: 1rem 0.9rem;
-}
-
-.metric-label {
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink3);
-  margin-bottom: 0.4rem;
-}
-
-.metric-val {
-  font-size: 1.5rem;
-  font-weight: 500;
-  color: var(--ink);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.metric-unit {
-  font-size: 0.6rem;
-  color: var(--ink3);
-  margin-top: 0.2rem;
-}
-
-/* ── CARDS ── */
-.card {
-  background: var(--bg);
-  border: 1px solid var(--rule);
-  padding: 1.2rem 1.4rem;
-}
-
-.card-title {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--ink3);
-  margin-bottom: 0.9rem;
-}
-
-/* ── SPLIT BAR ── */
-.split-bar-wrap { margin-bottom: 0.7rem; }
-
-.split-bar {
-  height: 30px;
-  display: flex;
-  overflow: hidden;
-  border-radius: 2px;
-  margin-bottom: 0.6rem;
-}
-
-.split-seg {
-  height: 100%;
-  transition: width 0.28s ease;
-}
-
-.split-legend {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.65rem;
-  color: var(--ink2);
-}
-
-.legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.split-vals {
-  font-size: 0.68rem;
-  color: var(--ink3);
-  margin-top: 0.5rem;
-}
-
-/* ── SVG CHARTS ── */
-svg.chart { width: 100%; display: block; overflow: visible; }
-
-/* ── NOTES ── */
-.note {
-  font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 300;
-  font-size: 0.72rem;
-  color: var(--ink3);
-  margin-top: 0.8rem;
-  line-height: 1.65;
-}
-
-.note em { font-style: italic; }
-.note strong { font-weight: 400; color: var(--ink2); }
-
-/* ── FOOTER ── */
-footer {
-  border-top: 1px solid var(--rule);
-  margin-top: 3rem;
-  padding: 1.5rem 2rem;
-  max-width: var(--max-w);
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.footer-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.footer-ref {
-  font-size: 0.65rem;
-  color: var(--ink3);
-  line-height: 1.6;
-}
-
-.footer-ref a {
-  color: var(--ink2);
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule);
-}
-
-.footer-ref a:hover { border-color: var(--ink2); }
-
-.footer-note {
-  font-size: 0.62rem;
-  color: var(--ink3);
-  font-style: italic;
-}
-</style>
-</head>
-<body>
-
-<header class="site-header">
-  <h1>Cyclist Energy Balance <em>— interactive</em></h1>
-  <p class="subtitle">Where does the power go? Adjust parameters to explore the physics.</p>
-</header>
-
-<main>
-  <div class="layout">
-
-    <!-- ── CONTROLS ── -->
-    <aside class="controls">
-
-      <div class="ctrl-section">
-        <div class="ctrl-section-title">Presets</div>
-        <div class="preset-row">
-          <button class="preset-btn" id="btn-commuter" onclick="ap('commuter')">Commuter</button>
-          <button class="preset-btn" id="btn-racer"    onclick="ap('racer')">Road racer</button>
-          <button class="preset-btn" id="btn-cx"       onclick="ap('cx')">Cyclocross</button>
-          <button class="preset-btn" id="btn-mtb"      onclick="ap('mtb')">MTB</button>
-          <button class="preset-btn" id="btn-climb"    onclick="ap('climb')">Climbing</button>
-        </div>
-      </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-section-title">Rider &amp; bike</div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Rider mass</span><span class="ctrl-value" id="v-mr">75 kg</span></div>
-          <input type="range" id="s-mr" min="40" max="120" value="75" step="1" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Bike mass</span><span class="ctrl-value" id="v-mb">9 kg</span></div>
-          <input type="range" id="s-mb" min="4" max="20" value="9" step="0.5" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Metabolic efficiency</span><span class="ctrl-value" id="v-eff">25%</span></div>
-          <input type="range" id="s-eff" min="18" max="30" value="25" step="1" oninput="upd()">
-        </div>
-      </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-section-title">Conditions</div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Speed</span><span class="ctrl-value" id="v-spd">25 km/h</span></div>
-          <input type="range" id="s-spd" min="5" max="60" value="25" step="1" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Gradient</span><span class="ctrl-value" id="v-gr">0.0%</span></div>
-          <input type="range" id="s-gr" min="-8" max="15" value="0" step="0.5" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Headwind</span><span class="ctrl-value" id="v-wind">0 km/h</span></div>
-          <input type="range" id="s-wind" min="-20" max="30" value="0" step="1" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Temperature</span><span class="ctrl-value" id="v-temp">20 °C</span></div>
-          <input type="range" id="s-temp" min="-10" max="45" value="20" step="1" oninput="upd()">
-          <div class="rho-display" id="rho-display">ρ = 1.204 kg/m³</div>
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Altitude</span><span class="ctrl-value" id="v-alt">0 m</span></div>
-          <input type="range" id="s-alt" min="0" max="3000" value="0" step="50" oninput="upd()">
-        </div>
-      </div>
-
-      <div class="ctrl-section">
-        <div class="ctrl-section-title">Equipment</div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">C<sub>d</sub>A (drag area)</span><span class="ctrl-value" id="v-cda">0.40 m²</span></div>
-          <input type="range" id="s-cda" min="0.18" max="0.65" value="0.40" step="0.01" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">C<sub>rr</sub> (rolling resist.)</span><span class="ctrl-value" id="v-crr">0.0050</span></div>
-          <input type="range" id="s-crr" min="0.002" max="0.020" value="0.005" step="0.0005" oninput="upd()">
-        </div>
-        <div class="ctrl-row">
-          <div class="ctrl-label"><span class="ctrl-name">Drivetrain efficiency</span><span class="ctrl-value" id="v-dt">98%</span></div>
-          <input type="range" id="s-dt" min="85" max="99" value="98" step="1" oninput="upd()">
-        </div>
-      </div>
-
-    </aside>
-
-    <!-- ── VIZ ── -->
-    <div class="viz-panel">
-
-      <div class="metrics-grid">
-        <div class="metric-cell">
-          <div class="metric-label">Mechanical power</div>
-          <div class="metric-val" id="o-mech">—</div>
-          <div class="metric-unit">watts</div>
-        </div>
-        <div class="metric-cell">
-          <div class="metric-label">Metabolic input</div>
-          <div class="metric-val" id="o-food">—</div>
-          <div class="metric-unit">watts</div>
-        </div>
-        <div class="metric-cell">
-          <div class="metric-label">Energy cost</div>
-          <div class="metric-val" id="o-kcal">—</div>
-          <div class="metric-unit">kcal / km</div>
-        </div>
-        <div class="metric-cell">
-          <div class="metric-label">Aero fraction</div>
-          <div class="metric-val" id="o-aero">—</div>
-          <div class="metric-unit">of mech. power</div>
-        </div>
-      </div>
-
-      <!-- Power split bar -->
-      <div class="card">
-        <div class="card-title">Mechanical power split</div>
-        <div class="split-bar-wrap">
-          <div class="split-bar" id="split-bar"></div>
-          <div class="split-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:var(--aero)"></div>Aerodynamic drag</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--roll)"></div>Rolling resistance</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--grav)"></div>Gravity</div>
-            <div class="legend-item"><div class="legend-dot" style="background:var(--drive)"></div>Drivetrain loss</div>
-          </div>
-          <div class="split-vals" id="split-vals"></div>
-        </div>
-      </div>
-
-      <!-- Sankey -->
-      <div class="card">
-        <div class="card-title">Energy flow — food calories → motion</div>
-        <svg class="chart" id="sankey-svg" viewBox="0 0 680 250"></svg>
-        <p class="note">
-          ~75% of metabolic energy exits as body heat — an unavoidable consequence of muscle thermodynamics (human muscles operate at roughly 25% mechanical efficiency at optimal cadence).
-          <br><br>
-          <strong>Temperature and air density.</strong> Air density ρ = P/(R<sub>s</sub>T) where T is absolute temperature and P falls exponentially with altitude via the barometric formula. At 0 °C, ρ ≈ 1.29 kg/m³; at 35 °C, ρ ≈ 1.15 kg/m³ — an 11% swing that feeds directly into aerodynamic power (F<sub>aero</sub> = ½ρC<sub>d</sub>Av²). Cold air is denser and harder to push through.
-          <br><br>
-          <em>Note: temperature affects the metabolic efficiency figure in practice (cold muscles have slower enzyme kinetics; the body also burns additional calories via thermogenesis to maintain core temperature) but these effects are individual and not modelled here.</em>
-        </p>
-      </div>
-
-      <!-- Speed curve -->
-      <div class="card">
-        <div class="card-title">Power vs speed — stacked by loss type (dashed line = current speed)</div>
-        <svg class="chart" id="curve-svg" viewBox="0 0 620 185"></svg>
-        <p class="note">
-          Aerodynamic drag power scales as v³ — doubling speed requires <em>eight times</em> the power to overcome drag alone. Rolling resistance scales linearly with v. The crossover point where aero begins to dominate typically falls around 15–20 km/h, depending on C<sub>d</sub>A and C<sub>rr</sub>. This is why position and tyre choice have such different payoffs at different speeds.
-        </p>
-      </div>
-
-    </div>
-  </div>
-</main>
-
-<footer>
-  <div class="footer-inner">
-    <div class="footer-ref">
-      Standard cycling power model following: D. G. Wilson, <em>Bicycling Science</em> (3rd ed., MIT Press, 2004; earlier editions with F. R. Whitt) ·
-      Air density via the barometric formula (ISA standard atmosphere)
-    </div>
-    <div class="footer-note">All calculations are estimates. Results will vary with individual physiology and conditions.</div>
-  </div>
-</footer>
-
-<script>
-const G = 9.81, P0 = 101325, Rs = 287.05;
-
-function airDensity(tempC, altM) {
-  const T = tempC + 273.15;
-  const P = P0 * Math.exp(-G * altM / (Rs * T));
-  return P / (Rs * T);
-}
-
-function gp() {
-  return {
-    mr:   +document.getElementById('s-mr').value,
-    mb:   +document.getElementById('s-mb').value,
-    eff:  +document.getElementById('s-eff').value / 100,
-    spd:  +document.getElementById('s-spd').value / 3.6,
-    gr:   +document.getElementById('s-gr').value / 100,
-    wind: +document.getElementById('s-wind').value / 3.6,
-    temp: +document.getElementById('s-temp').value,
-    alt:  +document.getElementById('s-alt').value,
-    cda:  +document.getElementById('s-cda').value,
-    crr:  +document.getElementById('s-crr').value,
-    dt:   +document.getElementById('s-dt').value / 100,
-  };
-}
-
-function cp(p, v, rho) {
-  const m = p.mr + p.mb, va = v + p.wind;
-  const Pa  = 0.5 * rho * p.cda * va * va * v;
-  const Pr  = p.crr * m * G * v;
-  const Pg  = Math.max(0, m * G * p.gr * v);
-  const Pm  = Math.max(0, Pa + Pr + Pg);
-  const Pdl = Pm * (1 - p.dt);
-  const Ptm = Pm / p.dt;
-  const Pf  = Ptm / p.eff;
-  return { Pa, Pr, Pg, Pm, Pdl, Ptm, Pf };
-}
-
-function upd() {
-  const p   = gp();
-  const rho = airDensity(p.temp, p.alt);
-
-  document.getElementById('v-mr').textContent   = p.mr + ' kg';
-  document.getElementById('v-mb').textContent   = p.mb + ' kg';
-  document.getElementById('v-eff').textContent  = Math.round(p.eff * 100) + '%';
-  document.getElementById('v-spd').textContent  = Math.round(p.spd * 3.6) + ' km/h';
-  document.getElementById('v-gr').textContent   = (p.gr * 100).toFixed(1) + '%';
-  document.getElementById('v-wind').textContent = Math.round(p.wind * 3.6) + ' km/h';
-  document.getElementById('v-temp').textContent = p.temp + ' °C';
-  document.getElementById('v-alt').textContent  = p.alt + ' m';
-  document.getElementById('v-cda').textContent  = p.cda.toFixed(2) + ' m²';
-  document.getElementById('v-crr').textContent  = p.crr.toFixed(4);
-  document.getElementById('v-dt').textContent   = Math.round(p.dt * 100) + '%';
-  document.getElementById('rho-display').textContent = 'ρ = ' + rho.toFixed(3) + ' kg/m³';
-
-  const c = cp(p, p.spd, rho);
-  document.getElementById('o-mech').textContent = Math.round(c.Ptm);
-  document.getElementById('o-food').textContent = Math.round(c.Pf);
-  document.getElementById('o-kcal').textContent = (c.Pf / p.spd / 4184).toFixed(2);
-  document.getElementById('o-aero').textContent = c.Pm > 0 ? Math.round(c.Pa / c.Pm * 100) + '%' : '—';
-
-  if (c.Pm > 0) {
-    const fa = c.Pa / c.Pm * 100;
-    const fr = c.Pr / c.Pm * 100;
-    const fg = Math.max(0, c.Pg / c.Pm * 100);
-    const fd = c.Pdl / c.Pm * 100;
-    document.getElementById('split-bar').innerHTML =
-      `<div class="split-seg" style="width:${fa}%;background:var(--aero)"></div>` +
-      `<div class="split-seg" style="width:${fr}%;background:var(--roll)"></div>` +
-      `<div class="split-seg" style="width:${fg}%;background:var(--grav)"></div>` +
-      `<div class="split-seg" style="width:${fd}%;background:var(--drive)"></div>`;
-    document.getElementById('split-vals').textContent =
-      `Aero ${fa.toFixed(1)}%  ·  Rolling ${fr.toFixed(1)}%  ·  Gravity ${fg.toFixed(1)}%  ·  Drivetrain ${fd.toFixed(1)}%`;
-  }
-
-  drawSankey(c, p);
-  drawCurve(p, rho);
-}
-
-
-function drawSankey(c, p) {
-  const Pf = c.Pf || 1;
-  const nW = 6;
-  const xA = 55, xB = 240, xC = 470;
-  const TH = 108;
-
-  const heatH = Math.max(4, (c.Pf * (1 - p.eff) / Pf) * TH);
-  const mechH_A = TH - heatH;
-
-  const yTop = heatH + 18;
-  const mechTop_A = yTop + heatH;
-
-  const heatDest_top = yTop - heatH;
-  const heatDest_bot = yTop;
-
-  function ribbon(st, sb, dt, db, x1, x2, col, op) {
-    const mx = (x1 + x2) / 2;
-    return `<path fill="${col}" opacity="${op}" stroke="none" d="`
-      + `M${x1},${st} C${mx},${st} ${mx},${dt} ${x2},${dt} `
-      + `L${x2},${db} C${mx},${db} ${mx},${sb} ${x1},${sb} Z"/>`;
-  }
-
-  let o = '';
-
-  // Food node
-  o += `<rect x="${xA-nW}" y="${yTop}" width="${nW*2}" height="${TH}" rx="2" fill="#2a6e3f"/>`;
-  o += `<text x="${xA-nW-7}" y="${yTop+TH/2-5}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="#5a5650">Food</text>`;
-  o += `<text x="${xA-nW-7}" y="${yTop+TH/2+9}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">${Math.round(Pf)}W</text>`;
-
-  // A→B ribbons
-  o += ribbon(yTop, yTop+heatH,  heatDest_top, heatDest_bot,  xA+nW, xB-nW, '#888', 0.35);
-  o += ribbon(mechTop_A, yTop+TH,  mechTop_A, yTop+TH,  xA+nW, xB-nW, '#2a6e3f', 0.32);
-
-  // Body heat node — same scale
-  o += `<rect x="${xB-nW}" y="${heatDest_top}" width="${nW*2}" height="${heatH}" rx="2" fill="#888"/>`;
-  o += `<text x="${xB+nW+7}" y="${heatDest_top+heatH/2+4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">Body heat  ${Math.round(c.Pf*(1-p.eff))}W</text>`;
-
-  // Mech node
-  o += `<rect x="${xB-nW}" y="${mechTop_A}" width="${nW*2}" height="${mechH_A}" rx="2" fill="#2a6e3f"/>`;
-
-  // B→C: same scale on both sides (mechH_A), but dest positions are spread by adding
-  // a gap between each flow so they separate visually like the heat/mech split above.
-  const GAP = 8; // px gap between output flows
-  const subs = [
-    { pw: c.Pa,              col: '#c0392b', lbl: 'Aero drag' },
-    { pw: c.Pr,              col: '#c47a0a', lbl: 'Rolling' },
-    { pw: Math.max(0, c.Pg), col: '#1a6090', lbl: 'Gravity' },
-    { pw: c.Pdl,             col: '#6c3483', lbl: 'Drivetrain' },
-  ].filter(s => c.Ptm > 0 && (s.pw / c.Ptm) * mechH_A >= 2);
-
-  // Total dest height = mechH_A + gaps between flows
-  const totalGap = GAP * (subs.length - 1);
-  // Each flow's dest height scales to fill mechH_A + totalGap proportionally
-  const destScale = (mechH_A + totalGap) / mechH_A;
-
-  let sy = mechTop_A, dy = mechTop_A;
-  for (const s of subs) {
-    const sh = (s.pw / c.Ptm) * mechH_A;           // source height — same scale
-    const dh = (s.pw / c.Ptm) * mechH_A * destScale; // dest height — slightly expanded to add gaps
-    o += ribbon(sy, sy+sh, dy, dy+dh, xB+nW, xC-nW, s.col, 0.5);
-    o += `<rect x="${xC-nW}" y="${dy}" width="${nW*2}" height="${dh}" rx="2" fill="${s.col}" opacity="0.9"/>`;
-    o += `<text x="${xC+nW+7}" y="${dy+dh/2+4}" font-family="IBM Plex Mono,monospace" font-size="10" fill="#5a5650">${s.lbl}  ${Math.round(s.pw)}W</text>`;
-    sy += sh;
-    dy += dh + GAP;
-  }
-
-  o += `<text x="${xB}" y="${yTop+TH+15}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">muscle output</text>`;
-  o += `<text x="${xC}" y="${yTop+TH+totalGap+15}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#9a9690">at wheel</text>`;
-
-  document.getElementById('sankey-svg').innerHTML = o;
-}
-
-function drawCurve(p, rho) {
-  const W=620, H=185, pL=48, pR=20, pT=14, pB=36;
-  const cW = W-pL-pR, cH = H-pT-pB;
-  const maxV = 55, steps = 120;
-
-  let aPs=[], rPs=[], gPs=[], tPs=[];
-  for (let i = 0; i <= steps; i++) {
-    const v  = (i / steps) * maxV / 3.6;
-    const va = v + p.wind;
-    const m  = p.mr + p.mb;
-    const Pa = 0.5 * rho * p.cda * va * va * v;
-    const Pr = p.crr * m * G * v;
-    const Pg = Math.max(0, m * G * p.gr * v);
-    aPs.push(Pa); rPs.push(Pr); gPs.push(Pg);
-    tPs.push((Pa + Pr + Pg) / p.dt);
-  }
-
-  const maxP = Math.max(...tPs, 10);
-  const sx = i => pL + (i / steps) * cW;
-  const sy = v => pT + cH - (v / maxP) * cH;
-
-  function area(vals, base) {
-    let d = '';
-    for (let i = 0; i <= steps; i++) {
-      d += (i ? 'L' : 'M') + sx(i).toFixed(1) + ',' + sy((base ? base[i] : 0) + vals[i]).toFixed(1);
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+    Wind, Mountain, Weight, Bike, Gauge, Settings, Info, Flame, Activity, CheckCircle2, RotateCcw, Cog
+} from 'lucide-react';
+
+// --- Bike Data Definitions ---
+const BIKE_TYPES = {
+    road: { 
+        id: 'road', name: 'Road Bike (2x11)', 
+        chainrings: [50, 34], 
+        cassette: [11, 12, 13, 14, 16, 18, 21, 24, 28, 32], 
+        circ: 2.136 // 700x28c
+    },
+    mtb: { 
+        id: 'mtb', name: 'Mountain Bike (1x12)', 
+        chainrings: [32], 
+        cassette: [10, 12, 14, 16, 18, 21, 24, 28, 33, 39, 45, 51], 
+        circ: 2.298 // 29x2.2
+    },
+    commuter: { 
+        id: 'commuter', name: 'Commuter (1x8)', 
+        chainrings: [42], 
+        cassette: [11, 13, 15, 18, 21, 24, 28, 34], 
+        circ: 2.168 // 700x35c
     }
-    if (base) {
-      for (let i = steps; i >= 0; i--) d += 'L' + sx(i).toFixed(1) + ',' + sy(base[i]).toFixed(1);
-      d += 'Z';
-    }
-    return d;
-  }
-
-  const zeros = new Array(steps + 1).fill(0);
-  const rb = aPs;
-  const gb = aPs.map((a, i) => a + rPs[i]);
-
-  let o = '';
-
-  // Grid
-  for (let i = 0; i <= 5; i++) {
-    const pv = (i / 5) * maxP, y = sy(pv);
-    o += `<line x1="${pL}" y1="${y.toFixed(1)}" x2="${pL+cW}" y2="${y.toFixed(1)}" stroke="#d0ccc4" stroke-width="0.5"/>`;
-    o += `<text x="${pL-5}" y="${(y+4).toFixed(1)}" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">${Math.round(pv)}</text>`;
-  }
-  for (let v = 0; v <= maxV; v += 10) {
-    const x = pL + (v / maxV) * cW;
-    o += `<line x1="${x.toFixed(1)}" y1="${pT}" x2="${x.toFixed(1)}" y2="${pT+cH}" stroke="#d0ccc4" stroke-width="0.5"/>`;
-    o += `<text x="${x.toFixed(1)}" y="${pT+cH+16}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#9a9690">${v}</text>`;
-  }
-
-  // Stacked areas
-  o += `<path d="${area(aPs, zeros)}" fill="#c0392b" opacity="0.15"/>`;
-  o += `<path d="${area(rPs, rb)}"    fill="#c47a0a" opacity="0.15"/>`;
-  o += `<path d="${area(gPs, gb)}"    fill="#1a6090" opacity="0.15"/>`;
-
-  // Total line
-  let tp = '';
-  for (let i = 0; i <= steps; i++) tp += (i ? 'L' : 'M') + sx(i).toFixed(1) + ',' + sy(tPs[i]).toFixed(1);
-  o += `<path d="${tp}" fill="none" stroke="#1a1814" stroke-width="1.8"/>`;
-
-  // Current speed marker
-  const curX = (pL + (p.spd * 3.6 / maxV) * cW).toFixed(1);
-  o += `<line x1="${curX}" y1="${pT}" x2="${curX}" y2="${pT+cH}" stroke="#1a1814" stroke-width="1" stroke-dasharray="4,3"/>`;
-
-  // Axes
-  o += `<line x1="${pL}" y1="${pT}" x2="${pL}" y2="${pT+cH}" stroke="#5a5650" stroke-width="1"/>`;
-  o += `<line x1="${pL}" y1="${pT+cH}" x2="${pL+cW}" y2="${pT+cH}" stroke="#5a5650" stroke-width="1"/>`;
-
-  // Axis labels
-  o += `<text x="${(pL+cW/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9a9690">Speed (km/h)</text>`;
-  o += `<text x="13" y="${(pT+cH/2).toFixed(1)}" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#9a9690" transform="rotate(-90,13,${(pT+cH/2).toFixed(1)})">Power (W)</text>`;
-
-  document.getElementById('curve-svg').innerHTML = o;
-}
-
-const PR = {
-  commuter: { mr:80, mb:12, eff:25, spd:18, gr:0,   wind:0, temp:15, alt:0,    cda:0.55, crr:0.006,  dt:96 },
-  racer:    { mr:68, mb:7,  eff:26, spd:38, gr:0,   wind:0, temp:20, alt:0,    cda:0.24, crr:0.003,  dt:98 },
-  cx:       { mr:72, mb:9,  eff:25, spd:25, gr:1,   wind:5, temp:8,  alt:0,    cda:0.40, crr:0.012,  dt:97 },
-  mtb:      { mr:80, mb:13, eff:24, spd:18, gr:3,   wind:0, temp:15, alt:200,  cda:0.50, crr:0.015,  dt:95 },
-  climb:    { mr:65, mb:7,  eff:26, spd:14, gr:8,   wind:0, temp:25, alt:1500, cda:0.32, crr:0.003,  dt:98 },
 };
 
-let activePreset = null;
+// --- Animated Cyclist Component (Inverse Kinematics + Gearing) ---
+const AnimatedCyclist = ({ speed, grade, power, cda, cadence, frontTeeth, rearTeeth }) => {
+    const tilt = Math.atan(grade / 100) * (180 / Math.PI);
+    
+    // Animation Refs for high-performance DOM manipulation
+    const refs = {
+        wheel1: useRef(null), wheel2: useRef(null), crank: useRef(null),
+        chainTop: useRef(null), chainBottom: useRef(null),
+        lLegSkin: useRef(null), lShort: useRef(null), lShoe: useRef(null),
+        rLegSkin: useRef(null), rShort: useRef(null), rShoe: useRef(null),
+        lArmSkin: useRef(null), lSleeve: useRef(null),
+        rArmSkin: useRef(null), rSleeve: useRef(null),
+        torso: useRef(null), head: useRef(null)
+    };
+    
+    const paramsRef = useRef({ speed, cda, cadence, frontTeeth });
+    useEffect(() => { paramsRef.current = { speed, cda, cadence, frontTeeth }; }, [speed, cda, cadence, frontTeeth]);
 
-function ap(name) {
-  const pr = PR[name];
-  const keys = ['mr','mb','eff','spd','gr','wind','temp','alt','cda','crr','dt'];
-  keys.forEach(k => { document.getElementById('s-' + k).value = pr[k]; });
-  if (activePreset) document.getElementById('btn-' + activePreset).classList.remove('active');
-  activePreset = name;
-  document.getElementById('btn-' + name).classList.add('active');
-  upd();
+    useEffect(() => {
+        let animationFrameId;
+        let lastTime = performance.now();
+        let angle = 0;
+        let chainOffset = 0;
+
+        // Inverse Kinematics Solver for 2-bone limbs
+        const solveKinematics = (x1, y1, x2, y2, L1, L2, bendDir) => {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const D = Math.sqrt(dx*dx + dy*dy);
+            const D_clamped = Math.min(D, L1 + L2 - 0.01); // Prevent NaN hyperextension
+            const alpha = Math.acos((L1*L1 + D_clamped*D_clamped - L2*L2) / (2 * L1 * D_clamped));
+            const beta = Math.atan2(dy, dx);
+            // bendDir: -1 for knee (bends forward), +1 for elbow (bends downward)
+            const gamma = beta + (bendDir * alpha); 
+            return { x: x1 + L1 * Math.cos(gamma), y: y1 + L1 * Math.sin(gamma) };
+        };
+
+        const renderLoop = (time) => {
+            const deltaTime = time - lastTime;
+            lastTime = time;
+
+            const v = paramsRef.current.speed / 3.6; 
+            const wheelRps = v > 0 ? v / 2.1 : 0;
+            const pedalRps = paramsRef.current.cadence / 60;
+
+            angle += pedalRps * 2 * Math.PI * (deltaTime / 1000);
+            const wheelAngle = (time / 1000) * wheelRps * 360;
+            
+            // Calculate Chain Speed (linear speed based on chainring size)
+            const crRadius = paramsRef.current.frontTeeth * 0.22;
+            const chainLinearSpeed = pedalRps * 2 * Math.PI * crRadius;
+            chainOffset += chainLinearSpeed * (deltaTime / 1000);
+
+            // Geometry Scale (1 unit ~ 10mm)
+            const ccx = 90, ccy = 90; // Bottom Bracket
+            const cr = 17; // Crank Length (170mm)
+            
+            // Rider Anatomical Lengths
+            const femur = 42, tibia = 42; 
+            const upperArm = 34, lowerArm = 34;
+            const spine = 55;
+            
+            // Dynamic Posture & Hips
+            const baseHipX = 64;
+            const baseHipY = 22; // Well above the saddle
+            // Greatly reduced the torso bouncing factor
+            const hipY = baseHipY + Math.sin(angle * 2) * 0.3; 
+
+            // Calculate Torso and Reach based on CdA
+            // t = 0 (Aero/Drops), t = 1 (Upright/Flats)
+            const t = Math.max(0, Math.min(1, (paramsRef.current.cda - 0.2) / 0.3));
+            
+            const angleAero = 15 * (Math.PI / 180); // 15 deg below horizontal
+            const angleUpright = -45 * (Math.PI / 180); // 45 deg above horizontal
+            const torsoAngle = angleAero + t * (angleUpright - angleAero);
+            
+            const shX = baseHipX + spine * Math.cos(torsoAngle);
+            const shY = hipY + spine * Math.sin(torsoAngle);
+
+            // Hand Position interpolates along the handlebars based on posture
+            const handX = 165 - t * 30;
+            const handY = 32 + (t < 0.5 ? t * 2 * 6 : 6); 
+
+            // Pedals
+            const rpx = ccx + cr * Math.cos(angle);
+            const rpy = ccy + cr * Math.sin(angle);
+            const lpx = ccx + cr * Math.cos(angle + Math.PI);
+            const lpy = ccy + Math.sin(angle + Math.PI); // Keep fixed for simplified rendering
+
+            // Solve Joints
+            const rKnee = solveKinematics(baseHipX, hipY, rpx, rpy, femur, tibia, -1);
+            const lKnee = solveKinematics(baseHipX, hipY, ccx + cr * Math.cos(angle + Math.PI), ccy + cr * Math.sin(angle + Math.PI), femur, tibia, -1);
+            const elbow = solveKinematics(shX, shY, handX, handY, upperArm, lowerArm, 1);
+
+            // Calculate Clothing Boundaries
+            const getShortEnd = (knee) => ({
+                x: baseHipX + (knee.x - baseHipX) * 0.65,
+                y: hipY + (knee.y - hipY) * 0.65
+            });
+            const rShortEnd = getShortEnd(rKnee);
+            const lShortEnd = getShortEnd(lKnee);
+
+            const sleeveEnd = {
+                x: shX + (elbow.x - shX) * 0.35,
+                y: shY + (elbow.y - shY) * 0.35
+            };
+
+            // DOM Updates (Batching via Refs)
+            if (refs.crank.current) refs.crank.current.setAttribute('d', `M ${ccx + cr * Math.cos(angle + Math.PI)} ${ccy + cr * Math.sin(angle + Math.PI)} L ${rpx} ${rpy}`);
+            if (refs.wheel1.current) refs.wheel1.current.setAttribute('transform', `rotate(${wheelAngle})`);
+            if (refs.wheel2.current) refs.wheel2.current.setAttribute('transform', `rotate(${wheelAngle})`);
+            
+            // Animate Chain
+            if (refs.chainTop.current) refs.chainTop.current.setAttribute('stroke-dashoffset', -chainOffset);
+            if (refs.chainBottom.current) refs.chainBottom.current.setAttribute('stroke-dashoffset', chainOffset);
+
+            // Left Leg (Background)
+            const lPedalX = ccx + cr * Math.cos(angle + Math.PI);
+            const lPedalY = ccy + cr * Math.sin(angle + Math.PI);
+            if (refs.lLegSkin.current) refs.lLegSkin.current.setAttribute('d', `M ${lShortEnd.x} ${lShortEnd.y} L ${lKnee.x} ${lKnee.y} L ${lPedalX} ${lPedalY}`);
+            if (refs.lShort.current) refs.lShort.current.setAttribute('d', `M ${baseHipX} ${hipY} L ${lShortEnd.x} ${lShortEnd.y}`);
+            if (refs.lShoe.current) refs.lShoe.current.setAttribute('d', `M ${lPedalX-7} ${lPedalY-4} L ${lPedalX+10} ${lPedalY-1} L ${lPedalX+12} ${lPedalY+4} L ${lPedalX-6} ${lPedalY+5} Z`);
+
+            // Arms
+            if (refs.lArmSkin.current) refs.lArmSkin.current.setAttribute('d', `M ${sleeveEnd.x} ${sleeveEnd.y} L ${elbow.x} ${elbow.y} L ${handX} ${handY}`);
+            if (refs.lSleeve.current) refs.lSleeve.current.setAttribute('d', `M ${shX} ${shY} L ${sleeveEnd.x} ${sleeveEnd.y}`);
+            if (refs.rArmSkin.current) refs.rArmSkin.current.setAttribute('d', `M ${sleeveEnd.x} ${sleeveEnd.y} L ${elbow.x} ${elbow.y} L ${handX} ${handY}`);
+            if (refs.rSleeve.current) refs.rSleeve.current.setAttribute('d', `M ${shX} ${shY} L ${sleeveEnd.x} ${sleeveEnd.y}`);
+
+            // Right Leg (Foreground)
+            if (refs.rLegSkin.current) refs.rLegSkin.current.setAttribute('d', `M ${rShortEnd.x} ${rShortEnd.y} L ${rKnee.x} ${rKnee.y} L ${rpx} ${rpy}`);
+            if (refs.rShort.current) refs.rShort.current.setAttribute('d', `M ${baseHipX} ${hipY} L ${rShortEnd.x} ${rShortEnd.y}`);
+            if (refs.rShoe.current) refs.rShoe.current.setAttribute('d', `M ${rpx-7} ${rpy-4} L ${rpx+10} ${rpy-1} L ${rpx+12} ${rpy+4} L ${rpx-6} ${rpy+5} Z`);
+
+            // Torso & Head
+            if (refs.torso.current) refs.torso.current.setAttribute('d', `M ${baseHipX} ${hipY} Q ${(baseHipX+shX)/2 + 8} ${(hipY+shY)/2 - 12} ${shX} ${shY}`);
+            
+            if (refs.head.current) {
+                const headDeg = (torsoAngle * 180 / Math.PI) + 40; // Look forward
+                refs.head.current.setAttribute('transform', `translate(${shX + 8}, ${shY - 14}) rotate(${headDeg})`);
+            }
+
+            animationFrameId = requestAnimationFrame(renderLoop);
+        };
+        animationFrameId = requestAnimationFrame(renderLoop);
+        return () => cancelAnimationFrame(animationFrameId);
+    }, []);
+
+    let riderColor = "#2563eb"; 
+    if (power > 450) riderColor = "#dc2626"; 
+    else if (power > 300) riderColor = "#ea580c"; 
+    else if (power > 180) riderColor = "#d97706"; 
+
+    const skinColor = "#e7c09e";
+    const shortColor = "#0f172a";
+
+    // Visual Gearing Radii
+    const crRadius = frontTeeth * 0.22;
+    const cgRadius = rearTeeth * 0.22;
+
+    return (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden relative h-64 sm:h-80 w-full">
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <style>
+                    {`@keyframes move-wind { from { transform: translateX(120%); } to { transform: translateX(-120%); } }`}
+                </style>
+                {speed > 5 && [1,2,3].map(i => (
+                    <div key={i} className="absolute h-[1px] bg-slate-300 opacity-60" 
+                        style={{ top: `${i * 30}%`, width: '40%', left: '100%', animation: `move-wind ${15 / (speed/3.6)}s linear infinite`, animationDelay: `${i * -0.4}s`}}></div>
+                ))}
+            </div>
+
+            <div className="relative z-10 w-full h-full flex justify-center items-center">
+                <svg viewBox="10 -20 180 150" className="w-full h-full max-h-72 overflow-visible">
+                    <g style={{ transform: `rotate(${-tilt}deg)`, transformOrigin: '90px 90px', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                        <line x1="-200" y1="120" x2="400" y2="120" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10 10" />
+                        
+                        {/* Wheels */}
+                        <g transform="translate(35, 90)">
+                            <g ref={refs.wheel1}>
+                                <circle cx="0" cy="0" r="30" fill="none" stroke="#1e293b" strokeWidth="3" /> 
+                                <circle cx="0" cy="0" r="28" fill="none" stroke="#64748b" strokeWidth="1" />
+                                {[0, 30, 60, 90, 120, 150].map(deg => (
+                                    <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#cbd5e1" strokeWidth="0.5" transform={`rotate(${deg})`} />
+                                ))}
+                            </g>
+                        </g>
+                        <g transform="translate(155, 90)">
+                            <g ref={refs.wheel2}>
+                                <circle cx="0" cy="0" r="30" fill="none" stroke="#1e293b" strokeWidth="3" />
+                                <circle cx="0" cy="0" r="28" fill="none" stroke="#64748b" strokeWidth="1" />
+                                {[0, 30, 60, 90, 120, 150].map(deg => (
+                                    <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#cbd5e1" strokeWidth="0.5" transform={`rotate(${deg})`} />
+                                ))}
+                            </g>
+                        </g>
+
+                        {/* Modern Bike Frame */}
+                        <g stroke="#334155" strokeLinecap="round" strokeLinejoin="round" fill="none">
+                            <path d="M 35 90 L 90 90" strokeWidth="4" />
+                            <path d="M 35 90 L 68 45" strokeWidth="3.5" />
+                            <path d="M 90 90 L 68 45 L 135 35 L 90 90" strokeWidth="5.5" />
+                            <path d="M 140 50 L 155 90" strokeWidth="4.5" />
+                        </g>
+
+                        {/* Handlebars & Stem */}
+                        <g stroke="#1e293b" strokeWidth="3.5" fill="none" strokeLinecap="round">
+                            <path d="M 135 35 L 145 35" />
+                            <path d="M 145 35 Q 160 35 155 50" />
+                            <path d="M 145 35 L 155 35" strokeWidth="2" />
+                        </g>
+
+                        {/* Drivetrain Lines (Animated Chain) */}
+                        <g stroke="#64748b" fill="none">
+                            <line ref={refs.chainTop} x1="35" y1={90 - cgRadius} x2="90" y2={90 - crRadius} strokeWidth="1.5" strokeDasharray="3 2" />
+                            <line ref={refs.chainBottom} x1="35" y1={90 + cgRadius} x2="90" y2={90 + crRadius} strokeWidth="1.5" strokeDasharray="3 2" />
+                            <circle cx="90" cy="90" r={crRadius} strokeWidth="2.5" />
+                            <circle cx="35" cy="90" r={cgRadius} strokeWidth="2.5" />
+                        </g>
+
+                        {/* Saddle & Post */}
+                        <line x1="68" y1="45" x2="62" y2="30" stroke="#1e293b" strokeWidth="3" />
+                        <path d="M 52 32 L 72 30 Q 75 30 75 33 L 68 34 Z" fill="#0f172a" />
+
+                        {/* -- RIDER LAYER 1: Background Left -- */}
+                        <path ref={refs.lArmSkin} stroke={skinColor} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
+                        <path ref={refs.lSleeve} stroke={riderColor} strokeWidth="8.5" strokeLinecap="round" fill="none" opacity="0.6" />
+                        <path ref={refs.lLegSkin} stroke={skinColor} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
+                        <path ref={refs.lShort} stroke={shortColor} strokeWidth="12" strokeLinecap="round" fill="none" opacity="0.8" />
+                        <path ref={refs.lShoe} fill="#f8fafc" stroke="#cbd5e1" strokeLinejoin="round" opacity="0.8" />
+                        
+                        {/* Crankset Base & Spinning Arm */}
+                        <circle cx="90" cy="90" r="4" fill="#0f172a" />
+                        <path ref={refs.crank} stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+
+                        {/* -- RIDER LAYER 2: Foreground Right -- */}
+                        <path ref={refs.rLegSkin} stroke={skinColor} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        <path ref={refs.rShort} stroke={shortColor} strokeWidth="13" strokeLinecap="round" fill="none" />
+                        <path ref={refs.rShoe} fill="#ffffff" stroke="#94a3b8" strokeLinejoin="round" />
+                        
+                        {/* Torso */}
+                        <path ref={refs.torso} stroke={riderColor} strokeWidth="18" strokeLinecap="round" fill="none" />
+                        
+                        {/* Foreground Arm */}
+                        <path ref={refs.rArmSkin} stroke={skinColor} strokeWidth="7.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        <path ref={refs.rSleeve} stroke={riderColor} strokeWidth="9" strokeLinecap="round" fill="none" />
+                        
+                        {/* Head & Helmet */}
+                        <g ref={refs.head}>
+                            {/* Face / Skin */}
+                            <circle cx="0" cy="0" r="7.5" fill={skinColor} />
+                            {/* Sunglasses (Facing Right) */}
+                            <path d="M -1 -2 Q 5 -3 8 -1 Q 5 2 -1 0 Z" fill="#0f172a" />
+                            {/* Aero Helmet (Tail pointing Left) */}
+                            <path d="M 6 -4 C 4 -14, -10 -15, -25 4 Q -10 10, -5 6 L 6 -4 Z" fill="#334155" />
+                        </g>
+                    </g>
+                </svg>
+            </div>
+            
+            <div className="absolute bottom-3 left-3 flex gap-2">
+                <div className="bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 shadow-sm">
+                    {grade.toFixed(1)}% Slope
+                </div>
+                <div className="bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 shadow-sm flex items-center gap-1">
+                    <Cog className="w-3 h-3" /> {frontTeeth} x {rearTeeth}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default function App() {
+    // Environmental / Physics State
+    const [speed, setSpeed] = useState(32);
+    const [grade, setGrade] = useState(0);
+    const [mass, setMass] = useState(82);
+    const [cda, setCda] = useState(0.32);
+    const [crr, setCrr] = useState(0.0045);
+    const [efficiency, setEfficiency] = useState(97);
+    const [rho, setRho] = useState(1.225);
+    const [humanEfficiency, setHumanEfficiency] = useState(23.5);
+
+    // Gearing State
+    const [bikeId, setBikeId] = useState('road');
+    const [shiftMode, setShiftMode] = useState('auto'); 
+    const [targetCadence, setTargetCadence] = useState(90);
+    const [manualFrontIdx, setManualFrontIdx] = useState(0);
+    const [manualRearIdx, setManualRearIdx] = useState(5);
+
+    const presets = [
+        { name: "TT Aero", bike: 'road', speed: 45, grade: 0, mass: 80, cda: 0.22, crr: 0.003, efficiency: 98, rho: 1.225, humanEff: 24 },
+        { name: "Pro Climb", bike: 'road', speed: 18, grade: 9, mass: 68, cda: 0.35, crr: 0.004, efficiency: 97, rho: 1.15, humanEff: 23 },
+        { name: "MTB Trail", bike: 'mtb', speed: 16, grade: 4, mass: 88, cda: 0.48, crr: 0.012, efficiency: 93, rho: 1.225, humanEff: 22 },
+        { name: "Commuter", bike: 'commuter', speed: 22, grade: 0, mass: 95, cda: 0.55, crr: 0.007, efficiency: 94, rho: 1.225, humanEff: 22 },
+    ];
+
+    const applyPreset = (p) => {
+        setBikeId(p.bike);
+        setManualFrontIdx(0); setManualRearIdx(5); 
+        setSpeed(p.speed); setGrade(p.grade); setMass(p.mass);
+        setCda(p.cda); setCrr(p.crr); setEfficiency(p.efficiency); setRho(p.rho);
+        setHumanEfficiency(p.humanEff);
+    };
+
+    const activeGear = useMemo(() => {
+        const bike = BIKE_TYPES[bikeId];
+        
+        if (shiftMode === 'manual') {
+            const fIdx = Math.min(manualFrontIdx, bike.chainrings.length - 1);
+            const rIdx = Math.min(manualRearIdx, bike.cassette.length - 1);
+            return { crIdx: fIdx, cogIdx: rIdx };
+        }
+
+        if (speed === 0) return { crIdx: 0, cogIdx: bike.cassette.length - 1 }; 
+
+        let bestDiff = Infinity;
+        let bestCr = 0;
+        let bestCog = 0;
+
+        bike.chainrings.forEach((cr, i) => {
+            bike.cassette.forEach((cg, j) => {
+                const ratio = cr / cg;
+                const cad = (speed * 1000) / (60 * ratio * bike.circ);
+                const diff = Math.abs(cad - targetCadence);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestCr = i;
+                    bestCog = j;
+                }
+            });
+        });
+
+        return { crIdx: bestCr, cogIdx: bestCog };
+    }, [bikeId, shiftMode, manualFrontIdx, manualRearIdx, speed, targetCadence]);
+
+    const currentBike = BIKE_TYPES[bikeId];
+    const frontTeeth = currentBike.chainrings[activeGear.crIdx];
+    const rearTeeth = currentBike.cassette[activeGear.cogIdx];
+    const gearRatio = frontTeeth / rearTeeth;
+    const actualCadence = speed === 0 ? 0 : (speed * 1000) / (60 * gearRatio * currentBike.circ);
+
+    const physics = useMemo(() => {
+        const v = speed / 3.6;
+        const g = 9.81;
+        const pAir = 0.5 * rho * cda * Math.pow(v, 3);
+        const theta = Math.atan(grade / 100);
+        const pRoll = mass * g * Math.cos(theta) * crr * v;
+        const pGrav = mass * g * Math.sin(theta) * v;
+        
+        const pGravSource = pGrav < 0 ? Math.abs(pGrav) : 0;
+        const pGravSink = pGrav > 0 ? pGrav : 0;
+        const dragSinks = pAir + pRoll + pGravSink;
+        const effDecimal = efficiency / 100;
+
+        let pRider = 0, pLoss = 0, pBrake = 0;
+        if (pGravSource >= dragSinks) {
+            pBrake = pGravSource - dragSinks;
+        } else {
+            const pWheelReq = dragSinks - pGravSource;
+            pRider = pWheelReq / effDecimal;
+            pLoss = pRider - pWheelReq;
+        }
+
+        const pMetabolic = pRider > 0 ? pRider / (humanEfficiency / 100) : 0;
+        const pBodyHeat = pMetabolic - pRider;
+
+        return { pAir, pRoll, pGravSource, pGravSink, pRider, pLoss, pBrake, pMetabolic, pBodyHeat, totalWatts: pRider };
+    }, [speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency]);
+
+    const sankey = useMemo(() => {
+        const width = 800, height = 360, nodeWidth = 24, gap = 16;
+        let sources = [
+            { id: 'metabolic', name: 'Metabolic Input', val: physics.pMetabolic, color: '#f97316' },
+            { id: 'gravSrc', name: 'Gravity Assist', val: physics.pGravSource, color: '#10b981' }
+        ].filter(s => s.val > 0.5);
+
+        let sinks = [
+            { id: 'bodyHeat', name: 'Body Heat', val: physics.pBodyHeat, color: '#fca5a5' },
+            { id: 'loss', name: 'Drivetrain Loss', val: physics.pLoss, color: '#94a3b8' },
+            { id: 'air', name: 'Air Resistance', val: physics.pAir, color: '#38bdf8' },
+            { id: 'roll', name: 'Rolling Res.', val: physics.pRoll, color: '#fbbf24' },
+            { id: 'gravSnk', name: 'Gravity Climb', val: physics.pGravSink, color: '#f87171' },
+            { id: 'brake', name: 'Brake Heat', val: physics.pBrake, color: '#ef4444' }
+        ].filter(s => s.val > 0.5);
+
+        const totalSource = sources.reduce((a, b) => a + b.val, 0);
+        const totalSink = sinks.reduce((a, b) => a + b.val, 0);
+        const scale = (height - (Math.max(sources.length, sinks.length) * gap)) / Math.max(totalSource, totalSink, 1);
+
+        let sy = gap, ky = gap;
+        sources.forEach(s => { s.y = sy; s.used = 0; sy += (s.val * scale) + gap; });
+        sinks.forEach(s => { s.y = ky; s.filled = 0; ky += (s.val * scale) + gap; });
+
+        let links = [];
+        sources.forEach(src => {
+            sinks.forEach(snk => {
+                const amount = Math.min(src.val - src.used, snk.val - snk.filled);
+                if (amount > 0.1) {
+                    links.push({
+                        y1: src.y + (src.used * scale),
+                        y2: snk.y + (snk.filled * scale),
+                        h: amount * scale,
+                        color: snk.color,
+                        val: amount
+                    });
+                    src.used += amount; snk.filled += amount;
+                }
+            });
+        });
+
+        return { sources, sinks, links, width, height, nodeWidth, scale };
+    }, [physics]);
+
+    return (
+        <div className="min-h-screen bg-white text-slate-800 font-sans p-4 md:p-8">
+            <div className="max-w-5xl mx-auto space-y-6">
+                
+                {/* Header */}
+                <header className="border-b border-slate-200 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Cycling Power Dynamics</h1>
+                        <p className="text-slate-500 mt-1">Interactive physics and drivetrain mechanics</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {presets.map((p, i) => (
+                            <button key={i} onClick={() => applyPreset(p)} className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded text-xs font-semibold text-slate-600 hover:text-blue-700 transition-colors">
+                                {p.name}
+                            </button>
+                        ))}
+                    </div>
+                </header>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Controls Sidebar */}
+                    <aside className="lg:col-span-4 space-y-6">
+                        
+                        {/* Drivetrain Panel */}
+                        <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100 space-y-5">
+                            <div className="flex items-center justify-between border-b border-blue-100 pb-2">
+                                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                                    <Cog className="w-4 h-4 text-blue-600" /> Drivetrain
+                                </h3>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="space-y-1 text-sm">
+                                    <label className="font-medium text-slate-700">Bike Profile</label>
+                                    <select 
+                                        value={bikeId} 
+                                        onChange={(e) => {
+                                            setBikeId(e.target.value);
+                                            setManualFrontIdx(0); setManualRearIdx(5);
+                                        }}
+                                        className="w-full bg-white border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                    >
+                                        {Object.values(BIKE_TYPES).map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => setShiftMode('auto')}
+                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold border ${shiftMode === 'auto' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                                    >Auto Shift</button>
+                                    <button 
+                                        onClick={() => setShiftMode('manual')}
+                                        className={`flex-1 py-1.5 rounded-md text-xs font-semibold border ${shiftMode === 'manual' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                                    >Manual</button>
+                                </div>
+
+                                {shiftMode === 'auto' ? (
+                                    <div className="space-y-1 bg-white p-3 rounded border border-slate-200">
+                                        <div className="flex justify-between text-xs">
+                                            <span className="font-medium text-slate-600">Target Cadence</span>
+                                            <span className="font-bold text-slate-900">{targetCadence} RPM</span>
+                                        </div>
+                                        <input type="range" min="60" max="120" step="5" value={targetCadence} onChange={e => setTargetCadence(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+                                        {currentBike.chainrings.length > 1 && (
+                                            <div className="space-y-2">
+                                                <div className="text-xs font-semibold text-slate-500 uppercase flex justify-between">
+                                                    <span>Front Ring</span>
+                                                    <span className="text-blue-600">{currentBike.chainrings[activeGear.crIdx]}T</span>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    {currentBike.chainrings.map((cr, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => setManualFrontIdx(idx)}
+                                                            className={`flex-1 py-1.5 rounded-md text-sm font-bold transition-colors ${
+                                                                activeGear.crIdx === idx 
+                                                                ? 'bg-blue-600 text-white shadow-sm' 
+                                                                : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {cr}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center text-xs font-semibold text-slate-500 uppercase">
+                                                <span>Rear Cassette</span>
+                                                <span className="text-blue-600">{currentBike.cassette[activeGear.cogIdx]}T</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {currentBike.cassette.map((cg, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setManualRearIdx(idx)}
+                                                        className={`flex-1 min-w-[2.5rem] py-1 rounded-md text-sm font-semibold transition-colors ${
+                                                            activeGear.cogIdx === idx 
+                                                            ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-600' 
+                                                            : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        {cg}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Environment Panel */}
+                        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-5">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-200 pb-2">Environment</h3>
+                            
+                            {[
+                                { label: 'Speed', val: speed, unit: 'km/h', set: setSpeed, min: 0, max: 80, step: 1 },
+                                { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1 },
+                                { label: 'Total Mass', val: mass, unit: 'kg', set: setMass, min: 50, max: 130, step: 1 },
+                                { label: 'Aero (CdA)', val: cda, unit: 'm²', set: setCda, min: 0.15, max: 0.65, step: 0.01 },
+                            ].map((item, i) => (
+                                <div key={i} className="space-y-1">
+                                    <div className="flex justify-between text-sm">
+                                        <label className="font-medium text-slate-700">{item.label}</label>
+                                        <span className="text-slate-900 font-mono bg-white px-1.5 border border-slate-200 rounded">{item.val} {item.unit}</span>
+                                    </div>
+                                    <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-500" />
+                                </div>
+                            ))}
+                        </div>
+                    </aside>
+
+                    {/* Main Visualization Area */}
+                    <main className="lg:col-span-8 space-y-6">
+                        <AnimatedCyclist 
+                            speed={speed} 
+                            grade={grade} 
+                            power={physics.totalWatts} 
+                            cda={cda} 
+                            cadence={actualCadence}
+                            frontTeeth={frontTeeth}
+                            rearTeeth={rearTeeth}
+                        />
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                { label: 'Cadence', value: Math.round(actualCadence), unit: 'RPM', sub: `Ratio: ${gearRatio.toFixed(2)}`, color: actualCadence > 120 || actualCadence < 50 && speed > 0 ? 'text-red-600' : 'text-emerald-600' },
+                                { label: 'Mechanical Power', value: Math.round(physics.totalWatts), unit: 'W', sub: `${(physics.totalWatts / mass).toFixed(1)} W/kg`, color: 'text-blue-600' },
+                                { label: 'Metabolic Cost', value: Math.round(physics.pMetabolic), unit: 'W', sub: `${Math.round(physics.pMetabolic * 0.86)} kcal/h`, color: 'text-orange-600' },
+                                { label: 'Resistance Total', value: Math.round(physics.pAir + physics.pRoll), unit: 'W', sub: 'Aero + Rolling', color: 'text-slate-600' },
+                            ].map((card, i) => (
+                                <div key={i} className="bg-white border border-slate-200 p-4 rounded-xl flex flex-col justify-between shadow-sm">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase">{card.label}</span>
+                                    <div className={`mt-1 flex items-baseline gap-1 ${card.color}`}>
+                                        <span className="text-2xl font-bold leading-none">{card.value}</span>
+                                        <span className="text-sm font-semibold">{card.unit}</span>
+                                    </div>
+                                    <span className="mt-2 text-xs text-slate-500">{card.sub}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Sankey Diagram */}
+                        <section className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-6">Energy Flow Diagram</h3>
+                            <div className="relative w-full overflow-x-auto pb-2">
+                                <svg viewBox={`0 0 ${sankey.width} ${sankey.height}`} className="w-full h-auto min-w-[600px]">
+                                    {sankey.links.map((l, i) => {
+                                        const x1 = 180 + sankey.nodeWidth, x2 = sankey.width - 200;
+                                        const curve = (x2 - x1) * 0.4;
+                                        const d = `M ${x1} ${l.y1} C ${x1+curve} ${l.y1}, ${x2-curve} ${l.y2}, ${x2} ${l.y2} L ${x2} ${l.y2+l.h} C ${x2-curve} ${l.y2+l.h}, ${x1+curve} ${l.y1+l.h}, ${x1} ${l.y1+l.h} Z`;
+                                        return <path key={i} d={d} fill={l.color} opacity={0.15} className="hover:opacity-30 transition-opacity"><title>{Math.round(l.val)}W</title></path>;
+                                    })}
+                                    {sankey.sources.map((n, i) => (
+                                        <g key={i}>
+                                            <rect x={180} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} rx={2} />
+                                            <text x={170} y={n.y + (n.val * sankey.scale)/2} textAnchor="end" alignmentBaseline="middle" className="fill-slate-800 font-semibold text-xs">{n.name}</text>
+                                            <text x={170} y={n.y + (n.val * sankey.scale)/2 + 14} textAnchor="end" alignmentBaseline="middle" className="fill-slate-500 font-mono text-xs">{Math.round(n.val)}W</text>
+                                        </g>
+                                    ))}
+                                    {sankey.sinks.map((n, i) => (
+                                        <g key={i}>
+                                            <rect x={sankey.width - 200} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} rx={2} />
+                                            <text x={sankey.width - 170} y={n.y + (n.val * sankey.scale)/2} textAnchor="start" alignmentBaseline="middle" className="fill-slate-800 font-semibold text-xs">{n.name}</text>
+                                            <text x={sankey.width - 170} y={n.y + (n.val * sankey.scale)/2 + 14} textAnchor="start" alignmentBaseline="middle" className="fill-slate-500 font-mono text-xs">{Math.round(n.val)}W</text>
+                                        </g>
+                                    ))}
+                                </svg>
+                            </div>
+                        </section>
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('input[type=range]').forEach(el => {
-    el.addEventListener('input', () => {
-      if (activePreset) {
-        document.getElementById('btn-' + activePreset).classList.remove('active');
-        activePreset = null;
-      }
-    });
-  });
-  upd();
-});
-</script>
-</body>
-</html>

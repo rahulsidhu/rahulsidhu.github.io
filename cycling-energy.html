@@ -543,7 +543,6 @@
             const actualCadence = calculateCadence(resolvedSpeed, frontTeeth, rearTeeth, currentBike.circ);
 
             const physics = useMemo(() => {
-                return calculatePhysics({ speed: resolvedSpeed, grade, mass: totalMass, cda: resolvedCda, crr, efficiency, rho, humanEfficiency: riderModel.humanEfficiency, descentControl });
                 return calculatePhysics({ speed: resolvedSpeed, grade, mass: totalMass, cda: resolvedCda, crr, efficiency, rho, windSpeed, humanEfficiency: riderModel.humanEfficiency, descentControl, descentSpeedLimit: descentControl === 'hybrid' && grade < 0 ? hybridDescentSpeedLimit : null });
             }, [resolvedSpeed, grade, totalMass, resolvedCda, crr, efficiency, rho, windSpeed, riderModel.humanEfficiency, descentControl, hybridDescentSpeedLimit]);
 

@@ -5,8 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bicycling Science Power Flow</title>
     
+    <!-- Google Fonts: IBM Plex Mono & IBM Plex Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300&display=swap" rel="stylesheet">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        paper: '#f4f1eb',
+                        ink: {
+                            DEFAULT: '#1a1814',
+                            muted: '#5a5650',
+                            light: '#9a9690',
+                        },
+                        physics: {
+                            aero: '#c0392b',
+                            roll: '#c47a0a',
+                            gravity: '#1a6090',
+                            loss: '#6c3483',
+                            kit: '#16a085', // Racing Teal
+                            accent: '#e67e22', // Frame accent
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"IBM Plex Sans"', 'sans-serif'],
+                        mono: ['"IBM Plex Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- React & ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -16,21 +49,35 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* Custom scrollbar for the sankey diagram container */
         .custom-scrollbar::-webkit-scrollbar { height: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Tech grid background */
+        .tech-grid {
+            background-image: 
+                linear-gradient(to right, rgba(26, 24, 20, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(26, 24, 20, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
     </style>
 </head>
-<body class="bg-white text-slate-800 font-sans antialiased">
+<body class="bg-paper text-ink font-mono antialiased">
 
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
+        import { BIKE_TYPES, PRESETS, DEFAULT_SCENARIO } from './scripts/cycling-sim/config.js';
+        import { calculateCadence, selectActiveGear } from './scripts/cycling-sim/drivetrain.js';
+        import { calculatePhysics } from './scripts/cycling-sim/physics.js';
+        import { buildSankeyData } from './scripts/cycling-sim/sankey.js';
+
         const { useState, useMemo, useEffect, useRef } = React;
 
-        // --- SVG Icons ---
         const CogIcon = ({ className }) => (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                 <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/>
@@ -42,33 +89,10 @@
             </svg>
         );
 
-        // --- Bike Data Definitions ---
-        const BIKE_TYPES = {
-            road: { 
-                id: 'road', name: 'Road Bike (2x11)', 
-                chainrings: [50, 34], 
-                cassette: [11, 12, 13, 14, 16, 18, 21, 24, 28, 32], 
-                circ: 2.136 // 700x28c
-            },
-            mtb: { 
-                id: 'mtb', name: 'Mountain Bike (1x12)', 
-                chainrings: [32], 
-                cassette: [10, 12, 14, 16, 18, 21, 24, 28, 33, 39, 45, 51], 
-                circ: 2.298 // 29x2.2
-            },
-            commuter: { 
-                id: 'commuter', name: 'Commuter (1x8)', 
-                chainrings: [42], 
-                cassette: [11, 13, 15, 18, 21, 24, 28, 34], 
-                circ: 2.168 // 700x35c
-            }
-        };
-
-        // --- Animated Cyclist Component (Inverse Kinematics + Gearing) ---
-        const AnimatedCyclist = ({ speed, grade, power, cda, cadence, frontTeeth, rearTeeth }) => {
+        const AnimatedCyclist = ({ speed, grade, power, cda, cadence, frontTeeth, rearTeeth, bikeId }) => {
             const tilt = Math.atan(grade / 100) * (180 / Math.PI);
+            const currentBike = BIKE_TYPES[bikeId];
             
-            // Animation Refs for high-performance DOM manipulation
             const refs = {
                 wheel1: useRef(null), wheel2: useRef(null), crank: useRef(null),
                 chainTop: useRef(null), chainBottom: useRef(null),
@@ -88,7 +112,6 @@
                 let angle = 0;
                 let chainOffset = 0;
 
-                // Inverse Kinematics Solver for 2-bone limbs
                 const solveKinematics = (x1, y1, x2, y2, L1, L2, bendDir) => {
                     const dx = x2 - x1;
                     const dy = y2 - y1;
@@ -115,14 +138,9 @@
                     const chainLinearSpeed = pedalRps * 2 * Math.PI * crRadius;
                     chainOffset += chainLinearSpeed * (deltaTime / 1000);
 
-                    const ccx = 90, ccy = 90;
-                    const cr = 17; 
-                    const femur = 42, tibia = 42; 
-                    const upperArm = 34, lowerArm = 34;
-                    const spine = 55;
-                    
-                    const baseHipX = 64;
-                    const baseHipY = 22; 
+                    const ccx = 90, ccy = 90, cr = 17; 
+                    const femur = 42, tibia = 42, upperArm = 34, lowerArm = 34, spine = 55;
+                    const baseHipX = 64, baseHipY = 22; 
                     const hipY = baseHipY + Math.sin(angle * 2) * 0.3; 
 
                     const t = Math.max(0, Math.min(1, (paramsRef.current.cda - 0.2) / 0.3));
@@ -138,26 +156,17 @@
 
                     const rpx = ccx + cr * Math.cos(angle);
                     const rpy = ccy + cr * Math.sin(angle);
-                    const lpx = ccx + cr * Math.cos(angle + Math.PI);
-                    const lpy = ccy + Math.sin(angle + Math.PI); 
 
                     const rKnee = solveKinematics(baseHipX, hipY, rpx, rpy, femur, tibia, -1);
                     const lKnee = solveKinematics(baseHipX, hipY, ccx + cr * Math.cos(angle + Math.PI), ccy + cr * Math.sin(angle + Math.PI), femur, tibia, -1);
                     const elbow = solveKinematics(shX, shY, handX, handY, upperArm, lowerArm, 1);
 
-                    const getShortEnd = (knee) => ({
-                        x: baseHipX + (knee.x - baseHipX) * 0.65,
-                        y: hipY + (knee.y - hipY) * 0.65
-                    });
+                    const getShortEnd = (knee) => ({ x: baseHipX + (knee.x - baseHipX) * 0.65, y: hipY + (knee.y - hipY) * 0.65 });
                     const rShortEnd = getShortEnd(rKnee);
                     const lShortEnd = getShortEnd(lKnee);
 
-                    const sleeveEnd = {
-                        x: shX + (elbow.x - shX) * 0.35,
-                        y: shY + (elbow.y - shY) * 0.35
-                    };
+                    const sleeveEnd = { x: shX + (elbow.x - shX) * 0.35, y: shY + (elbow.y - shY) * 0.35 };
 
-                    // DOM Updates
                     if (refs.crank.current) refs.crank.current.setAttribute('d', `M ${ccx + cr * Math.cos(angle + Math.PI)} ${ccy + cr * Math.sin(angle + Math.PI)} L ${rpx} ${rpy}`);
                     if (refs.wheel1.current) refs.wheel1.current.setAttribute('transform', `rotate(${wheelAngle})`);
                     if (refs.wheel2.current) refs.wheel2.current.setAttribute('transform', `rotate(${wheelAngle})`);
@@ -193,25 +202,24 @@
                 return () => cancelAnimationFrame(animationFrameId);
             }, []);
 
-            let riderColor = "#2563eb"; 
-            if (power > 450) riderColor = "#dc2626"; 
-            else if (power > 300) riderColor = "#ea580c"; 
-            else if (power > 180) riderColor = "#d97706"; 
+            let riderColor = "#16a085"; // kit teal
+            if (power > 450) riderColor = "#c0392b"; // aero red
+            else if (power > 300) riderColor = "#c47a0a"; // roll amber
 
-            const skinColor = "#e7c09e";
-            const shortColor = "#0f172a";
+            const skinColor = "#e0c9b0"; 
+            const shortColor = "#1a1814";
 
             const crRadius = frontTeeth * 0.22;
             const cgRadius = rearTeeth * 0.22;
 
             return (
-                <div className="bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden relative h-64 sm:h-80 w-full">
+                <div className="bg-paper border border-ink-light flex items-center justify-center overflow-hidden relative h-64 sm:h-80 w-full tech-grid">
                     <div className="absolute inset-0 pointer-events-none overflow-hidden">
                         <style>
                             {`@keyframes move-wind { from { transform: translateX(120%); } to { transform: translateX(-120%); } }`}
                         </style>
                         {speed > 5 && [1,2,3].map(i => (
-                            <div key={i} className="absolute h-[1px] bg-slate-300 opacity-60" 
+                            <div key={i} className="absolute h-[1px] bg-physics-aero opacity-30" 
                                 style={{ top: `${i * 30}%`, width: '40%', left: '100%', animation: `move-wind ${15 / (speed/3.6)}s linear infinite`, animationDelay: `${i * -0.4}s`}}></div>
                         ))}
                     </div>
@@ -219,62 +227,63 @@
                     <div className="relative z-10 w-full h-full flex justify-center items-center">
                         <svg viewBox="10 -20 180 150" className="w-full h-full max-h-72 overflow-visible">
                             <g style={{ transform: `rotate(${-tilt}deg)`, transformOrigin: '90px 90px', transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-                                <line x1="-200" y1="120" x2="400" y2="120" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10 10" />
+                                <line x1="-200" y1="120" x2="400" y2="120" stroke="#9a9690" strokeWidth="2" strokeDasharray="4 4" />
                                 
                                 <g transform="translate(35, 90)">
                                     <g ref={refs.wheel1}>
-                                        <circle cx="0" cy="0" r="30" fill="none" stroke="#1e293b" strokeWidth="3" /> 
-                                        <circle cx="0" cy="0" r="28" fill="none" stroke="#64748b" strokeWidth="1" />
+                                        <circle cx="0" cy="0" r="30" fill="none" stroke="#1a1814" strokeWidth="3.5" /> 
+                                        <circle cx="0" cy="0" r="28" fill="none" stroke="#5a5650" strokeWidth="1" />
                                         {[0, 30, 60, 90, 120, 150].map(deg => (
-                                            <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#cbd5e1" strokeWidth="0.5" transform={`rotate(${deg})`} />
+                                            <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#9a9690" strokeWidth="0.5" transform={`rotate(${deg})`} />
                                         ))}
                                     </g>
                                 </g>
                                 <g transform="translate(155, 90)">
                                     <g ref={refs.wheel2}>
-                                        <circle cx="0" cy="0" r="30" fill="none" stroke="#1e293b" strokeWidth="3" />
-                                        <circle cx="0" cy="0" r="28" fill="none" stroke="#64748b" strokeWidth="1" />
+                                        <circle cx="0" cy="0" r="30" fill="none" stroke="#1a1814" strokeWidth="3.5" />
+                                        <circle cx="0" cy="0" r="28" fill="none" stroke="#5a5650" strokeWidth="1" />
                                         {[0, 30, 60, 90, 120, 150].map(deg => (
-                                            <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#cbd5e1" strokeWidth="0.5" transform={`rotate(${deg})`} />
+                                            <line key={deg} x1="0" y1="-28" x2="0" y2="28" stroke="#9a9690" strokeWidth="0.5" transform={`rotate(${deg})`} />
                                         ))}
                                     </g>
                                 </g>
 
-                                <g stroke="#334155" strokeLinecap="round" strokeLinejoin="round" fill="none">
-                                    <path d="M 35 90 L 90 90" strokeWidth="4" />
-                                    <path d="M 35 90 L 68 45" strokeWidth="3.5" />
-                                    <path d="M 90 90 L 68 45 L 135 35 L 90 90" strokeWidth="5.5" />
-                                    <path d="M 140 50 L 155 90" strokeWidth="4.5" />
+                                <g stroke={currentBike.frameColor} strokeLinecap="round" strokeLinejoin="round" fill="none">
+                                    <path d="M 35 90 L 90 90" strokeWidth="4.5" />
+                                    <path d="M 35 90 L 68 45" strokeWidth="4" />
+                                    <path d="M 90 90 L 68 45 L 135 35 L 90 90" strokeWidth="6" />
+                                    <path d="M 140 50 L 155 90" strokeWidth="5" />
+                                    {/* Accent on frame */}
+                                    <path d="M 75 80 L 125 40" stroke="#e67e22" strokeWidth="2" opacity="0.6" />
                                 </g>
 
-                                <g stroke="#1e293b" strokeWidth="3.5" fill="none" strokeLinecap="round">
+                                <g stroke="#1a1814" strokeWidth="3.5" fill="none" strokeLinecap="round">
                                     <path d="M 135 35 L 145 35" />
                                     <path d="M 145 35 Q 160 35 155 50" />
-                                    <path d="M 145 35 L 155 35" strokeWidth="2" />
                                 </g>
 
-                                <g stroke="#64748b" fill="none">
-                                    <line ref={refs.chainTop} x1="35" y1={90 - cgRadius} x2="90" y2={90 - crRadius} strokeWidth="1.5" strokeDasharray="3 2" />
-                                    <line ref={refs.chainBottom} x1="35" y1={90 + cgRadius} x2="90" y2={90 + crRadius} strokeWidth="1.5" strokeDasharray="3 2" />
-                                    <circle cx="90" cy="90" r={crRadius} strokeWidth="2.5" />
-                                    <circle cx="35" cy="90" r={cgRadius} strokeWidth="2.5" />
+                                <g stroke="#9a9690" fill="none">
+                                    <line ref={refs.chainTop} x1="35" y1={90 - cgRadius} x2="90" y2={90 - crRadius} strokeWidth="2" strokeDasharray="3 2" />
+                                    <line ref={refs.chainBottom} x1="35" y1={90 + cgRadius} x2="90" y2={90 + crRadius} strokeWidth="2" strokeDasharray="3 2" />
+                                    <circle cx="90" cy="90" r={crRadius} stroke="#5a5650" strokeWidth="3" />
+                                    <circle cx="35" cy="90" r={cgRadius} stroke="#5a5650" strokeWidth="3" />
                                 </g>
 
-                                <line x1="68" y1="45" x2="62" y2="30" stroke="#1e293b" strokeWidth="3" />
-                                <path d="M 52 32 L 72 30 Q 75 30 75 33 L 68 34 Z" fill="#0f172a" />
+                                <line x1="68" y1="45" x2="62" y2="30" stroke="#1a1814" strokeWidth="3" />
+                                <path d="M 52 32 L 72 30 Q 75 30 75 33 L 68 34 Z" fill="#1a1814" />
 
                                 <path ref={refs.lArmSkin} stroke={skinColor} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
                                 <path ref={refs.lSleeve} stroke={riderColor} strokeWidth="8.5" strokeLinecap="round" fill="none" opacity="0.6" />
                                 <path ref={refs.lLegSkin} stroke={skinColor} strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.6" />
                                 <path ref={refs.lShort} stroke={shortColor} strokeWidth="12" strokeLinecap="round" fill="none" opacity="0.8" />
-                                <path ref={refs.lShoe} fill="#f8fafc" stroke="#cbd5e1" strokeLinejoin="round" opacity="0.8" />
+                                <path ref={refs.lShoe} fill="#f4f1eb" stroke="#9a9690" strokeLinejoin="round" opacity="0.8" />
                                 
-                                <circle cx="90" cy="90" r="4" fill="#0f172a" />
-                                <path ref={refs.crank} stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+                                <circle cx="90" cy="90" r="4" fill="#1a1814" />
+                                <path ref={refs.crank} stroke="#5a5650" strokeWidth="4" strokeLinecap="round" fill="none" />
 
                                 <path ref={refs.rLegSkin} stroke={skinColor} strokeWidth="9.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                                 <path ref={refs.rShort} stroke={shortColor} strokeWidth="13" strokeLinecap="round" fill="none" />
-                                <path ref={refs.rShoe} fill="#ffffff" stroke="#94a3b8" strokeLinejoin="round" />
+                                <path ref={refs.rShoe} fill="#f4f1eb" stroke="#5a5650" strokeLinejoin="round" />
                                 
                                 <path ref={refs.torso} stroke={riderColor} strokeWidth="18" strokeLinecap="round" fill="none" />
                                 
@@ -283,19 +292,19 @@
                                 
                                 <g ref={refs.head}>
                                     <circle cx="0" cy="0" r="7.5" fill={skinColor} />
-                                    <path d="M -1 -2 Q 5 -3 8 -1 Q 5 2 -1 0 Z" fill="#0f172a" />
-                                    <path d="M 6 -4 C 4 -14, -10 -15, -25 4 Q -10 10, -5 6 L 6 -4 Z" fill="#334155" />
+                                    <path d="M -1 -2 Q 5 -3 8 -1 Q 5 2 -1 0 Z" fill="#1a1814" />
+                                    <path d="M 6 -4 C 4 -14, -10 -15, -25 4 Q -10 10, -5 6 L 6 -4 Z" fill={riderColor} />
                                 </g>
                             </g>
                         </svg>
                     </div>
                     
                     <div className="absolute bottom-3 left-3 flex gap-2">
-                        <div className="bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 shadow-sm">
-                            {grade.toFixed(1)}% Slope
+                        <div className="bg-paper/90 backdrop-blur px-2 py-1 border border-ink-light text-xs text-ink font-bold" style={{ color: grade > 0 ? '#1a6090' : grade < 0 ? '#c0392b' : 'inherit' }}>
+                            {grade.toFixed(1)}% SLOPE
                         </div>
-                        <div className="bg-white/90 backdrop-blur px-2 py-1 rounded border border-slate-200 text-xs font-semibold text-slate-600 shadow-sm flex items-center gap-1">
-                            <CogIcon className="w-3 h-3" /> {frontTeeth} x {rearTeeth}
+                        <div className="bg-paper/90 backdrop-blur px-2 py-1 border border-ink-light text-xs text-ink flex items-center gap-1">
+                            <CogIcon className="w-3 h-3 text-physics-loss" /> {frontTeeth} x {rearTeeth}
                         </div>
                     </div>
                 </div>
@@ -303,255 +312,127 @@
         };
 
         function App() {
-            // Environmental / Physics State
-            const [speed, setSpeed] = useState(32);
-            const [grade, setGrade] = useState(0);
-            const [mass, setMass] = useState(82);
-            const [cda, setCda] = useState(0.32);
-            const [crr, setCrr] = useState(0.0045);
-            const [efficiency, setEfficiency] = useState(97);
-            const [rho, setRho] = useState(1.225);
-            const [humanEfficiency, setHumanEfficiency] = useState(23.5);
+            const [speed, setSpeed] = useState(DEFAULT_SCENARIO.speed);
+            const [grade, setGrade] = useState(DEFAULT_SCENARIO.grade);
+            const [mass, setMass] = useState(DEFAULT_SCENARIO.mass);
+            const [cda, setCda] = useState(DEFAULT_SCENARIO.cda);
+            const [crr, setCrr] = useState(DEFAULT_SCENARIO.crr);
+            const [efficiency, setEfficiency] = useState(DEFAULT_SCENARIO.efficiency);
+            const [rho, setRho] = useState(DEFAULT_SCENARIO.rho);
+            const [humanEfficiency, setHumanEfficiency] = useState(DEFAULT_SCENARIO.humanEfficiency);
 
-            // Gearing State
-            const [bikeId, setBikeId] = useState('road');
-            const [shiftMode, setShiftMode] = useState('auto'); 
-            const [targetCadence, setTargetCadence] = useState(90);
-            const [manualFrontIdx, setManualFrontIdx] = useState(0);
-            const [manualRearIdx, setManualRearIdx] = useState(5);
-
-            const presets = [
-                { name: "TT Aero", bike: 'road', speed: 45, grade: 0, mass: 80, cda: 0.22, crr: 0.003, efficiency: 98, rho: 1.225, humanEff: 24 },
-                { name: "Pro Climb", bike: 'road', speed: 18, grade: 9, mass: 68, cda: 0.35, crr: 0.004, efficiency: 97, rho: 1.15, humanEff: 23 },
-                { name: "MTB Trail", bike: 'mtb', speed: 16, grade: 4, mass: 88, cda: 0.48, crr: 0.012, efficiency: 93, rho: 1.225, humanEff: 22 },
-                { name: "Commuter", bike: 'commuter', speed: 22, grade: 0, mass: 95, cda: 0.55, crr: 0.007, efficiency: 94, rho: 1.225, humanEff: 22 },
-            ];
+            const [bikeId, setBikeId] = useState(DEFAULT_SCENARIO.bikeId);
+            const [shiftMode, setShiftMode] = useState(DEFAULT_SCENARIO.shiftMode);
+            const [targetCadence, setTargetCadence] = useState(DEFAULT_SCENARIO.targetCadence);
+            const [manualFrontIdx, setManualFrontIdx] = useState(DEFAULT_SCENARIO.manualFrontIdx);
+            const [manualRearIdx, setManualRearIdx] = useState(DEFAULT_SCENARIO.manualRearIdx);
 
             const applyPreset = (p) => {
                 setBikeId(p.bike);
-                setManualFrontIdx(0); setManualRearIdx(5); 
+                setManualFrontIdx(DEFAULT_SCENARIO.manualFrontIdx);
+                setManualRearIdx(DEFAULT_SCENARIO.manualRearIdx);
                 setSpeed(p.speed); setGrade(p.grade); setMass(p.mass);
                 setCda(p.cda); setCrr(p.crr); setEfficiency(p.efficiency); setRho(p.rho);
                 setHumanEfficiency(p.humanEff);
             };
 
             const activeGear = useMemo(() => {
-                const bike = BIKE_TYPES[bikeId];
-                
-                if (shiftMode === 'manual') {
-                    const fIdx = Math.min(manualFrontIdx, bike.chainrings.length - 1);
-                    const rIdx = Math.min(manualRearIdx, bike.cassette.length - 1);
-                    return { crIdx: fIdx, cogIdx: rIdx };
-                }
-
-                if (speed === 0) return { crIdx: 0, cogIdx: bike.cassette.length - 1 }; 
-
-                let bestDiff = Infinity;
-                let bestCr = 0;
-                let bestCog = 0;
-
-                bike.chainrings.forEach((cr, i) => {
-                    bike.cassette.forEach((cg, j) => {
-                        const ratio = cr / cg;
-                        const cad = (speed * 1000) / (60 * ratio * bike.circ);
-                        const diff = Math.abs(cad - targetCadence);
-                        if (diff < bestDiff) {
-                            bestDiff = diff;
-                            bestCr = i;
-                            bestCog = j;
-                        }
-                    });
+                return selectActiveGear({
+                    bike: BIKE_TYPES[bikeId],
+                    shiftMode,
+                    manualFrontIdx,
+                    manualRearIdx,
+                    speed,
+                    targetCadence
                 });
-
-                return { crIdx: bestCr, cogIdx: bestCog };
             }, [bikeId, shiftMode, manualFrontIdx, manualRearIdx, speed, targetCadence]);
 
             const currentBike = BIKE_TYPES[bikeId];
             const frontTeeth = currentBike.chainrings[activeGear.crIdx];
             const rearTeeth = currentBike.cassette[activeGear.cogIdx];
             const gearRatio = frontTeeth / rearTeeth;
-            const actualCadence = speed === 0 ? 0 : (speed * 1000) / (60 * gearRatio * currentBike.circ);
+            const actualCadence = calculateCadence(speed, frontTeeth, rearTeeth, currentBike.circ);
 
             const physics = useMemo(() => {
-                const v = speed / 3.6;
-                const g = 9.81;
-                const pAir = 0.5 * rho * cda * Math.pow(v, 3);
-                const theta = Math.atan(grade / 100);
-                const pRoll = mass * g * Math.cos(theta) * crr * v;
-                const pGrav = mass * g * Math.sin(theta) * v;
-                
-                const pGravSource = pGrav < 0 ? Math.abs(pGrav) : 0;
-                const pGravSink = pGrav > 0 ? pGrav : 0;
-                const dragSinks = pAir + pRoll + pGravSink;
-                const effDecimal = efficiency / 100;
-
-                let pRider = 0, pLoss = 0, pBrake = 0;
-                if (pGravSource >= dragSinks) {
-                    pBrake = pGravSource - dragSinks;
-                } else {
-                    const pWheelReq = dragSinks - pGravSource;
-                    pRider = pWheelReq / effDecimal;
-                    pLoss = pRider - pWheelReq;
-                }
-
-                const pMetabolic = pRider > 0 ? pRider / (humanEfficiency / 100) : 0;
-                const pBodyHeat = pMetabolic - pRider;
-
-                return { pAir, pRoll, pGravSource, pGravSink, pRider, pLoss, pBrake, pMetabolic, pBodyHeat, totalWatts: pRider };
+                return calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency });
             }, [speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency]);
 
-            const sankey = useMemo(() => {
-                const width = 800, height = 360, nodeWidth = 24, gap = 16;
-                let sources = [
-                    { id: 'metabolic', name: 'Metabolic Input', val: physics.pMetabolic, color: '#f97316' },
-                    { id: 'gravSrc', name: 'Gravity Assist', val: physics.pGravSource, color: '#10b981' }
-                ].filter(s => s.val > 0.5);
-
-                let sinks = [
-                    { id: 'bodyHeat', name: 'Body Heat', val: physics.pBodyHeat, color: '#fca5a5' },
-                    { id: 'loss', name: 'Drivetrain Loss', val: physics.pLoss, color: '#94a3b8' },
-                    { id: 'air', name: 'Air Resistance', val: physics.pAir, color: '#38bdf8' },
-                    { id: 'roll', name: 'Rolling Res.', val: physics.pRoll, color: '#fbbf24' },
-                    { id: 'gravSnk', name: 'Gravity Climb', val: physics.pGravSink, color: '#f87171' },
-                    { id: 'brake', name: 'Brake Heat', val: physics.pBrake, color: '#ef4444' }
-                ].filter(s => s.val > 0.5);
-
-                const totalSource = sources.reduce((a, b) => a + b.val, 0);
-                const totalSink = sinks.reduce((a, b) => a + b.val, 0);
-                const scale = (height - (Math.max(sources.length, sinks.length) * gap)) / Math.max(totalSource, totalSink, 1);
-
-                let sy = gap, ky = gap;
-                sources.forEach(s => { s.y = sy; s.used = 0; sy += (s.val * scale) + gap; });
-                sinks.forEach(s => { s.y = ky; s.filled = 0; ky += (s.val * scale) + gap; });
-
-                let links = [];
-                sources.forEach(src => {
-                    sinks.forEach(snk => {
-                        const amount = Math.min(src.val - src.used, snk.val - snk.filled);
-                        if (amount > 0.1) {
-                            links.push({
-                                y1: src.y + (src.used * scale),
-                                y2: snk.y + (snk.filled * scale),
-                                h: amount * scale,
-                                color: snk.color,
-                                val: amount
-                            });
-                            src.used += amount; snk.filled += amount;
-                        }
-                    });
-                });
-
-                return { sources, sinks, links, width, height, nodeWidth, scale };
-            }, [physics]);
+            const sankey = useMemo(() => buildSankeyData(physics), [physics]);
 
             return (
-                <div className="min-h-screen bg-white text-slate-800 font-sans p-4 md:p-8">
-                    <div className="max-w-5xl mx-auto space-y-6">
-                        
-                        <header className="border-b border-slate-200 pb-4 mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div className="min-h-screen bg-paper text-ink p-4 md:p-8">
+                    <div className="max-w-5xl mx-auto space-y-8">
+                        <header className="border-b border-ink-light pb-6 mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
                             <div>
-                                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Cycling Power Dynamics</h1>
-                                <p className="text-slate-500 mt-1">Interactive physics and drivetrain mechanics</p>
+                                <h1 className="text-4xl font-sans font-light tracking-tight text-ink">Cycling Power Dynamics</h1>
+                                <p className="text-ink-muted mt-2 text-sm">Interactive physics and drivetrain mechanics</p>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                                {presets.map((p, i) => (
-                                    <button key={i} onClick={() => applyPreset(p)} className="px-3 py-1.5 bg-slate-100 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded text-xs font-semibold text-slate-600 hover:text-blue-700 transition-colors">
-                                        {p.name}
-                                    </button>
-                                ))}
+                            <div className="flex flex-col items-start lg:items-end w-full lg:w-auto gap-2">
+                                <span className="text-xs text-ink-muted uppercase tracking-wider">Bike Type</span>
+                                <div className="flex border border-ink-light w-full overflow-x-auto no-scrollbar">
+                                    {Object.values(BIKE_TYPES).map(b => (
+                                        <button 
+                                            key={b.id} 
+                                            onClick={() => { setBikeId(b.id); setManualFrontIdx(0); setManualRearIdx(5); }}
+                                            className={`whitespace-nowrap px-4 py-2 text-sm transition-colors border-r border-ink-light last:border-r-0 ${bikeId === b.id ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}
+                                            style={{ borderTop: bikeId === b.id ? `3px solid ${b.frameColor}` : '3px solid transparent' }}
+                                        >
+                                            {b.name}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </header>
 
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <aside className="lg:col-span-4 space-y-6">
-                                
-                                <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100 space-y-5">
-                                    <div className="flex items-center justify-between border-b border-blue-100 pb-2">
-                                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                                            <CogIcon className="w-4 h-4 text-blue-600" /> Drivetrain
-                                        </h3>
-                                    </div>
-                                    
-                                    <div className="space-y-4">
-                                        <div className="space-y-1 text-sm">
-                                            <label className="font-medium text-slate-700">Bike Profile</label>
-                                            <select 
-                                                value={bikeId} 
-                                                onChange={(e) => {
-                                                    setBikeId(e.target.value);
-                                                    setManualFrontIdx(0); setManualRearIdx(5);
-                                                }}
-                                                className="w-full bg-white border border-slate-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                            >
-                                                {Object.values(BIKE_TYPES).map(b => (
-                                                    <option key={b.id} value={b.id}>{b.name}</option>
+                            <aside className="lg:col-span-4 space-y-8">
+                                <div className="space-y-6">
+                                    <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2 flex items-center gap-2">
+                                        <CogIcon className="w-4 h-4 text-physics-loss" /> Drivetrain & Scenarios
+                                    </h3>
+                                    <div className="space-y-6">
+                                        <div className="space-y-3">
+                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Presets</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {PRESETS.map((p, i) => (
+                                                    <button key={i} onClick={() => applyPreset(p)} className="px-2 py-2 border border-ink-light text-xs text-ink hover:bg-ink hover:text-paper transition-colors text-left truncate">
+                                                        {p.name}
+                                                    </button>
                                                 ))}
-                                            </select>
+                                            </div>
                                         </div>
 
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => setShiftMode('auto')}
-                                                className={`flex-1 py-2 md:py-1.5 rounded-md text-sm md:text-xs font-semibold border transition-colors ${shiftMode === 'auto' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
-                                            >Auto Shift</button>
-                                            <button 
-                                                onClick={() => setShiftMode('manual')}
-                                                className={`flex-1 py-2 md:py-1.5 rounded-md text-sm md:text-xs font-semibold border transition-colors ${shiftMode === 'manual' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
-                                            >Manual Mode</button>
+                                        <div className="space-y-3">
+                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Shift Mode</label>
+                                            <div className="flex border border-ink-light">
+                                                <button onClick={() => setShiftMode('auto')} className={`flex-1 py-2 text-xs transition-colors border-r border-ink-light ${shiftMode === 'auto' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>AUTO</button>
+                                                <button onClick={() => setShiftMode('manual')} className={`flex-1 py-2 text-xs transition-colors ${shiftMode === 'manual' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>MANUAL</button>
+                                            </div>
                                         </div>
 
                                         {shiftMode === 'auto' ? (
-                                            <div className="space-y-1 bg-white p-4 rounded border border-slate-200 shadow-sm">
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="font-medium text-slate-600">Target Cadence</span>
-                                                    <span className="font-bold text-slate-900">{targetCadence} RPM</span>
+                                            <div className="space-y-2 pt-2">
+                                                <div className="flex justify-between text-xs font-bold" style={{ color: '#6c3483' }}>
+                                                    <span className="uppercase">Target Cadence</span>
+                                                    <span>{targetCadence} RPM</span>
                                                 </div>
-                                                <input type="range" min="60" max="120" step="5" value={targetCadence} onChange={e => setTargetCadence(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mt-2" />
+                                                <input type="range" min="60" max="120" step="5" value={targetCadence} onChange={e => setTargetCadence(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer accent-physics-loss" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-4 bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-                                                {currentBike.chainrings.length > 1 && (
-                                                    <div className="space-y-2">
-                                                        <div className="text-xs font-semibold text-slate-500 uppercase flex justify-between">
-                                                            <span>Front Ring</span>
-                                                            <span className="text-blue-600">{currentBike.chainrings[activeGear.crIdx]}T</span>
-                                                        </div>
-                                                        <div className="flex gap-2">
-                                                            {currentBike.chainrings.map((cr, idx) => (
-                                                                <button
-                                                                    key={idx}
-                                                                    onClick={() => setManualFrontIdx(idx)}
-                                                                    className={`flex-1 min-h-[44px] py-2 rounded-md text-sm font-bold transition-colors ${
-                                                                        activeGear.crIdx === idx 
-                                                                        ? 'bg-blue-600 text-white shadow-sm' 
-                                                                        : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                                                    }`}
-                                                                >
-                                                                    {cr}
-                                                                </button>
-                                                            ))}
-                                                        </div>
+                                            <div className="space-y-4 pt-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-ink-muted uppercase w-12">Front</span>
+                                                    <div className="flex flex-1 gap-2">
+                                                        {currentBike.chainrings.map((cr, idx) => (
+                                                            <button key={idx} onClick={() => setManualFrontIdx(idx)} className={`flex-1 py-1.5 border transition-colors text-xs ${activeGear.crIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cr}T</button>
+                                                        ))}
                                                     </div>
-                                                )}
-                                                
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between items-center text-xs font-semibold text-slate-500 uppercase">
-                                                        <span>Rear Cassette</span>
-                                                        <span className="text-blue-600">{currentBike.cassette[activeGear.cogIdx]}T</span>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2">
+                                                </div>
+                                                <div className="flex items-start gap-3">
+                                                    <span className="text-xs text-ink-muted uppercase w-12 pt-1.5">Rear</span>
+                                                    <div className="flex flex-wrap flex-1 gap-2">
                                                         {currentBike.cassette.map((cg, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                onClick={() => setManualRearIdx(idx)}
-                                                                className={`flex-1 min-w-[3rem] min-h-[44px] py-2 rounded-md text-sm font-semibold transition-colors ${
-                                                                    activeGear.cogIdx === idx 
-                                                                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600 ring-offset-1' 
-                                                                    : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
-                                                                }`}
-                                                            >
-                                                                {cg}
-                                                            </button>
+                                                            <button key={idx} onClick={() => setManualRearIdx(idx)} className={`flex-grow sm:flex-grow-0 min-w-[36px] px-1 py-1.5 border transition-colors text-xs ${activeGear.cogIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cg}</button>
                                                         ))}
                                                     </div>
                                                 </div>
@@ -560,27 +441,26 @@
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-6 shadow-sm">
-                                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-200 pb-2">Environment Controls</h3>
-                                    
+                                <div className="space-y-6 pt-4">
+                                    <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2">Environment</h3>
                                     {[
-                                        { label: 'Speed', val: speed, unit: 'km/h', set: setSpeed, min: 0, max: 80, step: 1 },
-                                        { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1 },
-                                        { label: 'Total Mass', val: mass, unit: 'kg', set: setMass, min: 50, max: 130, step: 1 },
-                                        { label: 'Aero (CdA)', val: cda, unit: 'm²', set: setCda, min: 0.15, max: 0.65, step: 0.01 },
+                                        { label: 'Speed', val: speed, unit: 'km/h', set: setSpeed, min: 0, max: 80, step: 1, accent: '#1a1814' },
+                                        { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1, accent: '#1a6090' },
+                                        { label: 'Mass', val: mass, unit: 'kg', set: setMass, min: 50, max: 130, step: 1, accent: '#5a5650' },
+                                        { label: 'Aero (CdA)', val: cda, unit: 'm²', set: setCda, min: 0.15, max: 0.65, step: 0.01, accent: '#c0392b' },
                                     ].map((item, i) => (
                                         <div key={i} className="space-y-2">
-                                            <div className="flex justify-between text-sm items-center">
-                                                <label className="font-medium text-slate-700">{item.label}</label>
-                                                <span className="text-slate-900 font-mono bg-white px-2 py-0.5 border border-slate-200 rounded shadow-sm">{item.val} {item.unit}</span>
+                                            <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: item.accent }}>
+                                                <label>{item.label}</label>
+                                                <span>{item.val} {item.unit}</span>
                                             </div>
-                                            <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-600" />
+                                            <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: item.accent }} />
                                         </div>
                                     ))}
                                 </div>
                             </aside>
 
-                            <main className="lg:col-span-8 space-y-6">
+                            <main className="lg:col-span-8 space-y-8">
                                 <AnimatedCyclist 
                                     speed={speed} 
                                     grade={grade} 
@@ -589,48 +469,49 @@
                                     cadence={actualCadence}
                                     frontTeeth={frontTeeth}
                                     rearTeeth={rearTeeth}
+                                    bikeId={bikeId}
                                 />
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-ink-light">
                                     {[
-                                        { label: 'Cadence', value: Math.round(actualCadence), unit: 'RPM', sub: `Ratio: ${gearRatio.toFixed(2)}`, color: actualCadence > 120 || actualCadence < 50 && speed > 0 ? 'text-red-600' : 'text-emerald-600' },
-                                        { label: 'Mech Power', value: Math.round(physics.totalWatts), unit: 'W', sub: `${(physics.totalWatts / mass).toFixed(1)} W/kg`, color: 'text-blue-600' },
-                                        { label: 'Metabolic Cost', value: Math.round(physics.pMetabolic), unit: 'W', sub: `${Math.round(physics.pMetabolic * 0.86)} kcal/h`, color: 'text-orange-600' },
-                                        { label: 'Resistance', value: Math.round(physics.pAir + physics.pRoll), unit: 'W', sub: 'Aero + Rolling', color: 'text-slate-600' },
+                                        { label: 'Cadence', value: Math.round(actualCadence), unit: 'RPM', sub: `Ratio: ${gearRatio.toFixed(2)}`, color: '#6c3483' },
+                                        { label: 'Mech Power', value: Math.round(physics.totalWatts), unit: 'W', sub: `${(physics.totalWatts / mass).toFixed(1)} W/kg`, color: '#1a1814' },
+                                        { label: 'Metabolic', value: Math.round(physics.pMetabolic), unit: 'W', sub: `${Math.round(physics.pMetabolic * 0.86)} kcal/h`, color: '#5a5650' },
+                                        { label: 'Resistance', value: Math.round(physics.pAir + physics.pRoll), unit: 'W', sub: 'Total Drag', color: '#c0392b' },
                                     ].map((card, i) => (
-                                        <div key={i} className="bg-white border border-slate-200 p-5 rounded-xl flex flex-col justify-between shadow-sm">
-                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{card.label}</span>
-                                            <div className={`mt-2 flex items-baseline gap-1 ${card.color}`}>
-                                                <span className="text-3xl font-bold leading-none">{card.value}</span>
-                                                <span className="text-sm font-semibold">{card.unit}</span>
+                                        <div key={i} className={`p-4 flex flex-col justify-between ${i !== 0 ? 'border-l border-ink-light' : ''} ${i > 1 ? 'border-t md:border-t-0 border-ink-light' : ''}`}>
+                                            <span className="text-xs text-ink-muted uppercase tracking-wider">{card.label}</span>
+                                            <div className={`mt-3 flex items-baseline gap-1 font-bold`} style={{ color: card.color }}>
+                                                <span className="text-3xl font-normal tracking-tight">{card.value}</span>
+                                                <span className="text-xs">{card.unit}</span>
                                             </div>
-                                            <span className="mt-2 text-xs text-slate-500 font-medium">{card.sub}</span>
+                                            <span className="mt-2 text-xs text-ink-light">{card.sub}</span>
                                         </div>
                                     ))}
                                 </div>
 
-                                <section className="bg-white border border-slate-200 p-6 rounded-xl shadow-sm">
-                                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide mb-6">Energy Flow Diagram</h3>
-                                    <div className="relative w-full overflow-x-auto pb-2 custom-scrollbar">
+                                <section className="pt-4">
+                                    <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2 mb-6">Energy Flow (Watts)</h3>
+                                    <div className="relative w-full overflow-x-auto pb-2 custom-scrollbar border border-ink-light p-4 bg-[#ebe7e0]/30 tech-grid">
                                         <svg viewBox={`0 0 ${sankey.width} ${sankey.height}`} className="w-full h-auto min-w-[600px]">
                                             {sankey.links.map((l, i) => {
                                                 const x1 = 180 + sankey.nodeWidth, x2 = sankey.width - 200;
                                                 const curve = (x2 - x1) * 0.4;
                                                 const d = `M ${x1} ${l.y1} C ${x1+curve} ${l.y1}, ${x2-curve} ${l.y2}, ${x2} ${l.y2} L ${x2} ${l.y2+l.h} C ${x2-curve} ${l.y2+l.h}, ${x1+curve} ${l.y1+l.h}, ${x1} ${l.y1+l.h} Z`;
-                                                return <path key={i} d={d} fill={l.color} opacity={0.15} className="hover:opacity-30 transition-opacity"><title>{Math.round(l.val)}W</title></path>;
+                                                return <path key={i} d={d} fill={l.color} opacity={0.4} className="hover:opacity-80 transition-opacity"><title>{Math.round(l.val)}W</title></path>;
                                             })}
                                             {sankey.sources.map((n, i) => (
                                                 <g key={i}>
-                                                    <rect x={180} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} rx={3} />
-                                                    <text x={170} y={n.y + (n.val * sankey.scale)/2} textAnchor="end" alignmentBaseline="middle" className="fill-slate-800 font-bold text-xs">{n.name}</text>
-                                                    <text x={170} y={n.y + (n.val * sankey.scale)/2 + 16} textAnchor="end" alignmentBaseline="middle" className="fill-slate-500 font-mono text-xs">{Math.round(n.val)}W</text>
+                                                    <rect x={180} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} />
+                                                    <text x={170} y={n.y + (n.val * sankey.scale)/2} textAnchor="end" alignmentBaseline="middle" className="fill-ink text-xs uppercase font-bold">{n.name}</text>
+                                                    <text x={170} y={n.y + (n.val * sankey.scale)/2 + 14} textAnchor="end" alignmentBaseline="middle" className="fill-ink-muted text-xs">{Math.round(n.val)}W</text>
                                                 </g>
                                             ))}
                                             {sankey.sinks.map((n, i) => (
                                                 <g key={i}>
-                                                    <rect x={sankey.width - 200} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} rx={3} />
-                                                    <text x={sankey.width - 165} y={n.y + (n.val * sankey.scale)/2} textAnchor="start" alignmentBaseline="middle" className="fill-slate-800 font-bold text-xs">{n.name}</text>
-                                                    <text x={sankey.width - 165} y={n.y + (n.val * sankey.scale)/2 + 16} textAnchor="start" alignmentBaseline="middle" className="fill-slate-500 font-mono text-xs">{Math.round(n.val)}W</text>
+                                                    <rect x={sankey.width - 200} y={n.y} width={sankey.nodeWidth} height={n.val * sankey.scale} fill={n.color} />
+                                                    <text x={sankey.width - 165} y={n.y + (n.val * sankey.scale)/2} textAnchor="start" alignmentBaseline="middle" className="fill-ink text-xs uppercase font-bold">{n.name}</text>
+                                                    <text x={sankey.width - 165} y={n.y + (n.val * sankey.scale)/2 + 14} textAnchor="start" alignmentBaseline="middle" className="fill-ink-muted text-xs">{Math.round(n.val)}W</text>
                                                 </g>
                                             ))}
                                         </svg>

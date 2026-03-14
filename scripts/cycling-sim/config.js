@@ -60,7 +60,7 @@ export const PRESETS = [
 ];
 
 export const DEFAULT_SCENARIO = {
-    descentControl: 'brake',
+    descentControl: 'hybrid',
     aeroMode: 'derived',
     raceType: 'road_endurance',
     riderProfile: 'trained',

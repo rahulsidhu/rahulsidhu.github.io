@@ -72,7 +72,7 @@
 
     <script type="text/babel" data-type="module">
         import { BIKE_TYPES, PRESETS, DEFAULT_SCENARIO } from './scripts/cycling-sim/config.js';
-        import { RACE_TYPES, estimateCda, getAllowedRaceTypes, getDefaultRaceTypeForBike } from './scripts/cycling-sim/aero.js';
+        import { RACE_TYPES, estimateCda, getAllowedRaceTypes, getDefaultRaceTypeForBike, getHybridDescentSpeedLimit } from './scripts/cycling-sim/aero.js';
         import { calculateCadence, selectActiveGear } from './scripts/cycling-sim/drivetrain.js';
         import { RIDER_PROFILES, calculateTargetPower, getEffortLabel } from './scripts/cycling-sim/effort.js';
         import { calculatePhysics, solveSteadyStateSpeed } from './scripts/cycling-sim/physics.js';
@@ -496,6 +496,7 @@
             const currentBike = BIKE_TYPES[bikeId];
             const allowedRaceTypes = useMemo(() => getAllowedRaceTypes(bikeId), [bikeId]);
             const totalMass = riderWeight + currentBike.bikeWeight;
+            const hybridDescentSpeedLimit = useMemo(() => getHybridDescentSpeedLimit({ bikeId, raceType }), [bikeId, raceType]);
 
             useEffect(() => {
                 if (!allowedRaceTypes.includes(raceType)) {
@@ -503,7 +504,7 @@
                 }
             }, [bikeId, raceType, allowedRaceTypes]);
 
-            const resolvedSpeed = useMemo(() => {
+            const rawSolvedSpeed = useMemo(() => {
                 return solveSteadyStateSpeed({
                     grade,
                     mass: totalMass,
@@ -516,6 +517,14 @@
                     targetRiderPower: riderPower
                 });
             }, [riderPower, grade, totalMass, resolvedCda, crr, efficiency, rho, windSpeed, riderModel.humanEfficiency]);
+
+            const resolvedSpeed = useMemo(() => {
+                if (descentControl === 'hybrid' && grade < 0) {
+                    return Math.min(rawSolvedSpeed, hybridDescentSpeedLimit);
+                }
+
+                return rawSolvedSpeed;
+            }, [rawSolvedSpeed, descentControl, grade, hybridDescentSpeedLimit]);
 
             const activeGear = useMemo(() => {
                 return selectActiveGear({
@@ -535,8 +544,8 @@
 
             const physics = useMemo(() => {
                 return calculatePhysics({ speed: resolvedSpeed, grade, mass: totalMass, cda: resolvedCda, crr, efficiency, rho, humanEfficiency: riderModel.humanEfficiency, descentControl });
-                return calculatePhysics({ speed: resolvedSpeed, grade, mass: totalMass, cda: resolvedCda, crr, efficiency, rho, windSpeed, humanEfficiency: riderModel.humanEfficiency, descentControl });
-            }, [resolvedSpeed, grade, totalMass, resolvedCda, crr, efficiency, rho, windSpeed, riderModel.humanEfficiency, descentControl]);
+                return calculatePhysics({ speed: resolvedSpeed, grade, mass: totalMass, cda: resolvedCda, crr, efficiency, rho, windSpeed, humanEfficiency: riderModel.humanEfficiency, descentControl, descentSpeedLimit: descentControl === 'hybrid' && grade < 0 ? hybridDescentSpeedLimit : null });
+            }, [resolvedSpeed, grade, totalMass, resolvedCda, crr, efficiency, rho, windSpeed, riderModel.humanEfficiency, descentControl, hybridDescentSpeedLimit]);
 
             const windLabel = useMemo(() => {
                 if (Math.abs(windSpeed) < 0.5) {
@@ -548,6 +557,16 @@
 
             const sankey = useMemo(() => buildSankeyData(physics), [physics]);
             const downhillMessage = useMemo(() => {
+                if (descentControl === 'hybrid' && grade < 0) {
+                    if (physics.pBrake > 0.5) {
+                        return `Hybrid mode lets the bike run up to about ${hybridDescentSpeedLimit.toFixed(0)} km/h, then sheds roughly ${Math.round(physics.pBrake)} W with braking to stay there.`;
+                    }
+
+                    if (physics.pExcess > 0.5) {
+                        return `Hybrid mode is still below its ${hybridDescentSpeedLimit.toFixed(0)} km/h descent target, so about ${Math.round(physics.pExcess)} W remains available for further acceleration.`;
+                    }
+                }
+
                 if (physics.pBrake > 0.5) {
                     return `Holding ${resolvedSpeed.toFixed(1)} km/h on this descent requires about ${Math.round(physics.pBrake)} W of braking.`;
                 }
@@ -557,199 +576,41 @@
                 }
 
                 return null;
-            }, [physics.pBrake, physics.pExcess, resolvedSpeed]);
+            }, [descentControl, grade, hybridDescentSpeedLimit, physics.pBrake, physics.pExcess, resolvedSpeed]);
 
             return (
                 <div className="min-h-screen bg-paper text-ink p-3 sm:p-4 md:p-8">
-                    <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
-                        <header className="border-b border-ink-light pb-5 sm:pb-6 mb-6 sm:mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-5 sm:gap-6">
-                            <div>
-                                <h1 className="text-3xl sm:text-4xl font-sans font-light tracking-tight text-ink">Cycling Power Dynamics</h1>
-                                <p className="text-ink-muted mt-2 text-sm">Interactive physics and drivetrain mechanics</p>
-                            </div>
-                            <div className="flex flex-col items-start lg:items-end w-full lg:w-auto gap-2">
-                                <span className="text-xs text-ink-muted uppercase tracking-wider">Bike Type</span>
-                                <div className="grid grid-cols-2 sm:flex border border-ink-light w-full sm:overflow-x-auto no-scrollbar">
-                                    {Object.values(BIKE_TYPES).map(b => (
-                                        <button 
-                                            key={b.id} 
-                                            onClick={() => {
-                                                setBikeId(b.id);
-                                                setRaceType(getDefaultRaceTypeForBike(b.id));
-                                                setManualFrontIdx(0);
-                                                setManualRearIdx(5);
-                                            }}
-                                            className={`whitespace-nowrap px-3 py-1.5 text-[11px] uppercase tracking-wider transition-colors border-r border-b sm:border-b-0 border-ink-light last:border-r-0 even:border-r-0 sm:even:border-r sm:last:border-r-0 ${bikeId === b.id ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}
-                                            style={{ borderTop: bikeId === b.id ? `3px solid ${b.frameColor}` : '3px solid transparent' }}
-                                        >
-                                            {b.name}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </header>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                            <aside className="lg:col-span-4 space-y-6 sm:space-y-8">
-                                <div className="space-y-6">
-                                    <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2 flex items-center gap-2">
-                                        <CogIcon className="w-4 h-4 text-physics-loss" /> Drivetrain & Scenarios
-                                    </h3>
-                                    <div className="space-y-6">
-                                        <div className="space-y-3">
-                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Rider Profile</label>
-                                            <div className="grid grid-cols-2 gap-1.5">
-                                                {Object.values(RIDER_PROFILES).map((profile) => (
-                                                    <button key={profile.id} onClick={() => setRiderProfile(profile.id)} className={compactGridButtonClass(riderProfile === profile.id)}>
-                                                        {profile.name}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <p className="text-xs text-ink-muted">FTP {Math.round(riderModel.ftp)} W, gross efficiency {riderModel.humanEfficiency.toFixed(1)}%, {riderModel.profile.notes}</p>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Effort</label>
-                                            <div className="space-y-2 pt-2">
-                                                <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#1a1814' }}>
-                                                    <label>{effortLabel}</label>
-                                                    <span>{effortPercent}% FTP</span>
-                                                </div>
-                                                <input type="range" min="40" max="130" step="1" value={effortPercent} onChange={e => setEffortPercent(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#1a1814' }} />
-                                                <p className="text-xs text-ink-muted">Effort sets target rider power from the selected profile. Speed and mechanical power are solved outputs.</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Aero Model</label>
-                                            <SegmentedToggle
-                                                value={aeroMode}
-                                                onChange={setAeroMode}
-                                                options={[
-                                                    { value: 'derived', label: 'Derived C_dA' },
-                                                    { value: 'manual', label: 'Manual C_dA' }
-                                                ]}
-                                            />
-                                            {aeroMode === 'derived' ? (
-                                                <div className="space-y-3 pt-2">
-                                                    <label className="text-xs text-ink-muted uppercase tracking-wider">Race Type</label>
-                                                    <div className="grid grid-cols-2 gap-1.5">
-                                                        {allowedRaceTypes.map((raceId) => {
-                                                            const race = RACE_TYPES[raceId];
-                                                            return (
-                                                            <button key={race.id} onClick={() => setRaceType(race.id)} className={compactGridButtonClass(raceType === race.id)}>
-                                                                {race.name}
-                                                            </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <p className="text-xs text-ink-muted">CdA is inferred from bike type and event posture. Current estimate: {resolvedCda.toFixed(2)} m².</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-2 pt-2">
-                                                    <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#c0392b' }}>
-                                                        <label>C_dA</label>
-                                                        <span>{manualCda.toFixed(2)} m²</span>
-                                                    </div>
-                                                    <input type="range" min="0.15" max="0.65" step="0.01" value={manualCda} onChange={e => setManualCda(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#c0392b' }} />
-                                                    <p className="text-xs text-ink-muted">Manual mode overrides bike and race assumptions.</p>
-                                                </div>
-                                            )}
-
-                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Presets</label>
-                                            <div className="grid grid-cols-2 gap-1.5">
-                                                {PRESETS.map((p, i) => (
-                                                    <button key={i} onClick={() => applyPreset(p)} className="px-2 py-1.5 border border-ink-light text-[11px] leading-tight text-ink hover:bg-ink hover:text-paper transition-colors text-left truncate">
-                                                        {p.name}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Shift Mode</label>
-                                            <SegmentedToggle
-                                                value={shiftMode}
-                                                onChange={setShiftMode}
-                                                options={[
-                                                    { value: 'auto', label: 'Auto' },
-                                                    { value: 'manual', label: 'Manual' }
-                                                ]}
-                                            />
-                                        </div>
-
-                                        {shiftMode === 'auto' ? (
-                                            <div className="space-y-2 pt-2">
-                                                <div className="flex justify-between text-xs font-bold" style={{ color: '#6c3483' }}>
-                                                    <span className="uppercase">Target Cadence</span>
-                                                    <span>{targetCadence} RPM</span>
-                                                </div>
-                                                <input type="range" min="60" max="120" step="5" value={targetCadence} onChange={e => setTargetCadence(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer accent-physics-loss" />
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4 pt-2">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-xs text-ink-muted uppercase w-12">Front</span>
-                                                    <div className="flex flex-1 gap-2">
-                                                        {currentBike.chainrings.map((cr, idx) => (
-                                                            <button key={idx} onClick={() => setManualFrontIdx(idx)} className={`flex-1 py-1 border transition-colors text-[11px] ${activeGear.crIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cr}T</button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-start gap-3">
-                                                    <span className="text-xs text-ink-muted uppercase w-12 pt-1.5">Rear</span>
-                                                    <div className="flex flex-wrap flex-1 gap-2">
-                                                        {currentBike.cassette.map((cg, idx) => (
-                                                            <button key={idx} onClick={() => setManualRearIdx(idx)} className={`flex-grow sm:flex-grow-0 min-w-[34px] px-1 py-1 border transition-colors text-[11px] ${activeGear.cogIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cg}</button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6 pt-4">
-                                    <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2">Environment</h3>
-                                    {[
-                                        { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1, accent: '#1a6090' },
-                                        { label: 'Rider Weight', val: riderWeight, unit: 'kg', set: setRiderWeight, min: 45, max: 120, step: 1, accent: '#5a5650' },
-                                        { label: 'Wind', val: windSpeed, unit: 'km/h', set: setWindSpeed, min: -30, max: 30, step: 1, accent: '#16a085', format: (value) => `${Math.abs(value)} km/h ${Math.abs(value) < 0.5 ? 'Calm' : value > 0 ? 'Headwind' : 'Tailwind'}` },
-                                    ].map((item, i) => (
-                                        <div key={i} className="space-y-2">
-                                            <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: item.accent }}>
-                                                <label>{item.label}</label>
-                                                <span>{item.format ? item.format(item.val) : `${item.val} ${item.unit}`}</span>
-                                            </div>
-                                            <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: item.accent }} />
-                                        </div>
-                                    ))}
-
-                                    <div className="space-y-3 pt-2">
-                                        <label className="text-xs text-ink-muted uppercase tracking-wider">Advanced Assumption</label>
-                                        <SegmentedToggle
-                                            value={descentControl}
-                                            onChange={setDescentControl}
-                                            options={[
-                                                { value: 'brake', label: 'Hold Speed' },
-                                                { value: 'coast', label: 'Free Coast' }
-                                            ]}
-                                        />
-                                        <p className="text-xs text-ink-muted">On descents, choose whether extra gravity is modeled as braking heat or as acceleration reserve beyond the current speed.</p>
-                                    </div>
-                                </div>
-                            </aside>
-
-                            <main className="lg:col-span-8 space-y-6 sm:space-y-8">
+                    <div className="max-w-5xl mx-auto space-y-5 sm:space-y-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8">
+                            <main className="order-1 lg:order-2 lg:col-span-8 space-y-5 sm:space-y-6">
                                 <section className="border border-ink-light bg-[#ebe7e0]/35 p-4 tech-grid">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-ink-light pb-3">
-                                        <div>
-                                            <h3 className="text-sm text-ink uppercase tracking-wider">Selected Bike</h3>
-                                            <p className="text-xs text-ink-muted mt-1">Resolved configuration used for gearing, mass, and aerodynamics.</p>
+                                    <div className="space-y-3 border-b border-ink-light pb-3">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                            <h3 className="text-sm text-ink uppercase tracking-wider">Bike Setup</h3>
+                                            <div className="text-left sm:text-right">
+                                                <div className="text-lg font-sans font-light text-ink">{currentBike.name}</div>
+                                                <div className="text-xs text-ink-muted uppercase tracking-wider">{currentBike.desc}</div>
+                                            </div>
                                         </div>
-                                        <div className="text-left sm:text-right">
-                                            <div className="text-lg font-sans font-light text-ink">{currentBike.name}</div>
-                                            <div className="text-xs text-ink-muted uppercase tracking-wider">{currentBike.desc}</div>
+                                        <div>
+                                            <div className="grid grid-cols-2 sm:flex border border-ink-light w-full sm:overflow-x-auto no-scrollbar bg-paper">
+                                                {Object.values(BIKE_TYPES).map(b => (
+                                                    <button 
+                                                        key={b.id} 
+                                                        onClick={() => {
+                                                            setBikeId(b.id);
+                                                            setRaceType(getDefaultRaceTypeForBike(b.id));
+                                                            setManualFrontIdx(0);
+                                                            setManualRearIdx(5);
+                                                        }}
+                                                        className={`whitespace-nowrap px-3 py-1.5 text-[11px] uppercase tracking-wider transition-colors border-r border-b sm:border-b-0 border-ink-light last:border-r-0 even:border-r-0 sm:even:border-r sm:last:border-r-0 ${bikeId === b.id ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}
+                                                        style={{ borderTop: bikeId === b.id ? `3px solid ${b.frameColor}` : '3px solid transparent' }}
+                                                        title={`Switch to ${b.name}`}
+                                                    >
+                                                        {b.name}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-4 max-w-3xl mx-auto grid grid-cols-6 gap-px border border-ink-light bg-ink-light">
@@ -845,6 +706,169 @@
                                     </div>
                                 </section>
                             </main>
+
+                            <aside className="order-2 lg:order-1 lg:col-span-4 space-y-4 sm:space-y-5">
+                                <section className="border border-ink-light bg-[#ebe7e0]/2 p-3 sm:p-4 space-y-4">
+                                    <div className="flex items-center gap-2 border-b border-ink-light pb-2">
+                                        <CogIcon className="w-4 h-4 text-physics-loss" />
+                                        <h3 className="text-sm text-ink uppercase tracking-wider">Ride Setup</h3>
+                                    </div>
+
+                                    <div className="space-y-2.5">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider">Rider Profile</label>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            {Object.values(RIDER_PROFILES).map((profile) => (
+                                                <button key={profile.id} onClick={() => setRiderProfile(profile.id)} className={compactGridButtonClass(riderProfile === profile.id)}>
+                                                    {profile.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-[11px] text-ink-muted leading-snug">FTP {Math.round(riderModel.ftp)} W, gross efficiency {riderModel.humanEfficiency.toFixed(1)}%</p>
+                                    </div>
+
+                                    <div className="space-y-2.5">
+                                        <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#1a1814' }}>
+                                            <label title="Sets rider power as a percentage of FTP">Effort</label>
+                                            <span>{effortLabel} · {effortPercent}% FTP</span>
+                                        </div>
+                                        <input type="range" min="40" max="130" step="1" value={effortPercent} onChange={e => setEffortPercent(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#1a1814' }} />
+                                    </div>
+
+                                    <div className="space-y-2.5">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider">Presets</label>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            {PRESETS.map((p, i) => (
+                                                <button key={i} onClick={() => applyPreset(p)} className="px-2 py-1.5 border border-ink-light text-[11px] leading-tight text-ink hover:bg-ink hover:text-paper transition-colors text-left truncate">
+                                                    {p.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="border border-ink-light bg-[#ebe7e0]/2 p-3 sm:p-4 space-y-4">
+                                    <div className="flex items-center gap-2 border-b border-ink-light pb-2">
+                                        <h3 className="text-sm text-ink uppercase tracking-wider">Aero</h3>
+                                    </div>
+
+                                    <div className="space-y-2.5">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider" title="Derived uses bike and race posture. Manual overrides CdA directly.">Aero Model</label>
+                                        <SegmentedToggle
+                                            value={aeroMode}
+                                            onChange={setAeroMode}
+                                            options={[
+                                                { value: 'derived', label: 'Derived C_dA' },
+                                                { value: 'manual', label: 'Manual C_dA' }
+                                            ]}
+                                        />
+                                    </div>
+
+                                    {aeroMode === 'derived' ? (
+                                        <div className="space-y-2.5">
+                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Race Type</label>
+                                            <div className="grid grid-cols-2 gap-1.5">
+                                                {allowedRaceTypes.map((raceId) => {
+                                                    const race = RACE_TYPES[raceId];
+                                                    return (
+                                                        <button key={race.id} onClick={() => setRaceType(race.id)} className={compactGridButtonClass(raceType === race.id)}>
+                                                            {race.name}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-[11px] text-ink-muted leading-snug">Current estimate: {resolvedCda.toFixed(2)} m²</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2.5">
+                                            <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#c0392b' }}>
+                                                <label>C_dA</label>
+                                                <span>{manualCda.toFixed(2)} m²</span>
+                                            </div>
+                                            <input type="range" min="0.15" max="0.65" step="0.01" value={manualCda} onChange={e => setManualCda(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#c0392b' }} />
+                                        </div>
+                                    )}
+                                </section>
+
+                                <section className="border border-ink-light bg-[#ebe7e0]/2 p-3 sm:p-4 space-y-4">
+                                    <div className="flex items-center gap-2 border-b border-ink-light pb-2">
+                                        <h3 className="text-sm text-ink uppercase tracking-wider">Drivetrain</h3>
+                                    </div>
+
+                                    <div className="space-y-2.5">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider" title="Auto aims for target cadence. Manual lets you pin the gear.">Shift Mode</label>
+                                        <SegmentedToggle
+                                            value={shiftMode}
+                                            onChange={setShiftMode}
+                                            options={[
+                                                { value: 'auto', label: 'Auto' },
+                                                { value: 'manual', label: 'Manual' }
+                                            ]}
+                                        />
+                                    </div>
+
+                                    {shiftMode === 'auto' ? (
+                                        <div className="space-y-2.5">
+                                            <div className="flex justify-between text-xs font-bold" style={{ color: '#6c3483' }}>
+                                                <span className="uppercase">Target Cadence</span>
+                                                <span>{targetCadence} RPM</span>
+                                            </div>
+                                            <input type="range" min="60" max="120" step="5" value={targetCadence} onChange={e => setTargetCadence(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer accent-physics-loss" />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs text-ink-muted uppercase w-12">Front</span>
+                                                <div className="flex flex-1 gap-2">
+                                                    {currentBike.chainrings.map((cr, idx) => (
+                                                        <button key={idx} onClick={() => setManualFrontIdx(idx)} className={`flex-1 py-1 border transition-colors text-[11px] ${activeGear.crIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cr}T</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <span className="text-xs text-ink-muted uppercase w-12 pt-1.5">Rear</span>
+                                                <div className="flex flex-wrap flex-1 gap-2">
+                                                    {currentBike.cassette.map((cg, idx) => (
+                                                        <button key={idx} onClick={() => setManualRearIdx(idx)} className={`flex-grow sm:flex-grow-0 min-w-[34px] px-1 py-1 border transition-colors text-[11px] ${activeGear.cogIdx === idx ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>{cg}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </section>
+
+                                <section className="border border-ink-light bg-[#ebe7e0]/2 p-3 sm:p-4 space-y-4">
+                                    <div className="flex items-center gap-2 border-b border-ink-light pb-2">
+                                        <h3 className="text-sm text-ink uppercase tracking-wider">Conditions</h3>
+                                    </div>
+
+                                    {[
+                                        { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1, accent: '#1a6090' },
+                                        { label: 'Rider Weight', val: riderWeight, unit: 'kg', set: setRiderWeight, min: 45, max: 120, step: 1, accent: '#5a5650' },
+                                        { label: 'Wind', val: windSpeed, unit: 'km/h', set: setWindSpeed, min: -30, max: 30, step: 1, accent: '#16a085', format: (value) => `${Math.abs(value)} km/h ${Math.abs(value) < 0.5 ? 'Calm' : value > 0 ? 'Headwind' : 'Tailwind'}` },
+                                    ].map((item, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: item.accent }}>
+                                                <label>{item.label}</label>
+                                                <span>{item.format ? item.format(item.val) : `${item.val} ${item.unit}`}</span>
+                                            </div>
+                                            <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: item.accent }} />
+                                        </div>
+                                    ))}
+
+                                    <div className="space-y-2.5">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider" title="Hybrid coasts up to a bike-specific descent speed, then brakes. Hold Speed brakes immediately. Free Coast never brakes.">Descent Assumption</label>
+                                        <SegmentedToggle
+                                            value={descentControl}
+                                            onChange={setDescentControl}
+                                            options={[
+                                                { value: 'hybrid', label: 'Hybrid' },
+                                                { value: 'brake', label: 'Hold Speed' },
+                                                { value: 'coast', label: 'Free Coast' }
+                                            ]}
+                                        />
+                                    </div>
+                                </section>
+                            </aside>
                         </div>
                     </div>
                 </div>

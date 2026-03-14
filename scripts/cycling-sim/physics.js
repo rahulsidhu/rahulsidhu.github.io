@@ -1,4 +1,4 @@
-export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency, windSpeed = 0, descentControl = 'brake' }) {
+export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency, windSpeed = 0, descentControl = 'brake', descentSpeedLimit = null }) {
     const velocity = speed / 3.6;
     const windVelocity = windSpeed / 3.6;
     const relativeAirVelocity = velocity + windVelocity;
@@ -23,6 +23,13 @@ export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho
     if (totalSources >= totalSinks) {
         if (descentControl === 'coast') {
             pExcess = totalSources - totalSinks;
+        } else if (descentControl === 'hybrid') {
+            const isAtHybridLimit = typeof descentSpeedLimit === 'number' && speed >= descentSpeedLimit - 0.1;
+            if (isAtHybridLimit) {
+                pBrake = totalSources - totalSinks;
+            } else {
+                pExcess = totalSources - totalSinks;
+            }
         } else {
             pBrake = totalSources - totalSinks;
         }

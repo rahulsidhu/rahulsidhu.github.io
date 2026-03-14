@@ -18,6 +18,30 @@ export const BIKE_RACE_TYPE_MAP = {
     commuter: ['commute']
 };
 
+const HYBRID_DESCENT_SPEED_LIMITS = {
+    road: {
+        road_endurance: 62,
+        time_trial: 68,
+        climbing: 56
+    },
+    gravel: {
+        gravel_race: 46,
+        road_endurance: 52
+    },
+    cx: {
+        cyclocross: 41
+    },
+    track: {
+        track_pursuit: 72
+    },
+    mtb: {
+        trail: 34
+    },
+    commuter: {
+        commute: 36
+    }
+};
+
 const BASELINE_CDA_BY_BIKE = {
     road: 0.32,
     gravel: 0.40,
@@ -79,4 +103,10 @@ export function getAllowedRaceTypes(bikeId) {
 
 export function getDefaultRaceTypeForBike(bikeId) {
     return getAllowedRaceTypes(bikeId)[0];
+}
+
+export function getHybridDescentSpeedLimit({ bikeId, raceType }) {
+    return HYBRID_DESCENT_SPEED_LIMITS[bikeId]?.[raceType]
+        ?? HYBRID_DESCENT_SPEED_LIMITS[bikeId]?.[getDefaultRaceTypeForBike(bikeId)]
+        ?? 50;
 }

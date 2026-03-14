@@ -1,35 +1,21 @@
 export const RIDER_PROFILES = {
-    recreational: {
-        id: 'recreational',
-        name: 'Recreational Rider',
-        ftp: 180,
-        humanEfficiency: 22.0,
-        notes: 'Occasional riding, comfort-first pacing.'
-    },
-    trained: {
-        id: 'trained',
-        name: 'Trained Rider',
-        ftp: 230,
+    amateur: {
+        id: 'amateur',
+        name: 'Amateur',
+        ftp: 235,
         humanEfficiency: 23.0,
-        notes: 'Regular training and solid endurance.'
+        notes: 'Regular rider with solid aerobic fitness.'
     },
-    club: {
-        id: 'club',
-        name: 'Club Racer',
-        ftp: 280,
-        humanEfficiency: 23.5,
-        notes: 'Strong amateur with disciplined pacing.'
-    },
-    amateur_racer: {
-        id: 'amateur_racer',
-        name: 'Amateur Racer',
+    pro: {
+        id: 'pro',
+        name: 'Pro',
         ftp: 330,
         humanEfficiency: 24.0,
         notes: 'Race-ready rider with strong threshold power.'
     },
     elite: {
         id: 'elite',
-        name: 'Elite Rider',
+        name: 'Elite',
         ftp: 390,
         humanEfficiency: 24.5,
         notes: 'High-end domestic or professional capability.'
@@ -46,7 +32,7 @@ export function getEffortLabel(effortPercent) {
 }
 
 export function calculateTargetPower(profileId, effortPercent) {
-    const profile = RIDER_PROFILES[profileId] ?? RIDER_PROFILES.trained;
+    const profile = RIDER_PROFILES[profileId] ?? RIDER_PROFILES.amateur;
     const targetPower = profile.ftp * (effortPercent / 100);
 
     return {

@@ -6,7 +6,8 @@ export function buildSankeyData(physics) {
 
     const sources = [
         { id: 'metabolic', name: 'Metabolic Input', val: physics.pMetabolic, color: '#1a1814' },
-        { id: 'gravSrc', name: 'Gravity Assist', val: physics.pGravSource, color: '#1a6090' }
+        { id: 'gravSrc', name: 'Gravity Assist', val: physics.pGravSource, color: '#1a6090' },
+        { id: 'windSrc', name: 'Tailwind Assist', val: physics.pAirAssist, color: '#16a085' }
     ].filter((source) => source.val > 0.5);
 
     const sinks = [

@@ -4,14 +4,25 @@ export const RACE_TYPES = {
     climbing: { id: 'climbing', name: 'Climbing' },
     gravel_race: { id: 'gravel_race', name: 'Gravel Race' },
     cyclocross: { id: 'cyclocross', name: 'Cyclocross' },
+    track_pursuit: { id: 'track_pursuit', name: 'Track Pursuit' },
     trail: { id: 'trail', name: 'MTB Trail' },
     commute: { id: 'commute', name: 'Urban Commute' }
+};
+
+export const BIKE_RACE_TYPE_MAP = {
+    road: ['road_endurance', 'time_trial', 'climbing'],
+    gravel: ['gravel_race', 'road_endurance'],
+    cx: ['cyclocross'],
+    track: ['track_pursuit'],
+    mtb: ['trail'],
+    commuter: ['commute']
 };
 
 const BASELINE_CDA_BY_BIKE = {
     road: 0.32,
     gravel: 0.40,
     cx: 0.43,
+    track: 0.24,
     mtb: 0.50,
     commuter: 0.58
 };
@@ -22,6 +33,7 @@ const RACE_TYPE_CDA_ADJUSTMENT = {
     climbing: 0.03,
     gravel_race: 0.02,
     cyclocross: 0.02,
+    track_pursuit: -0.03,
     trail: 0.00,
     commute: 0.00
 };
@@ -38,6 +50,9 @@ const BIKE_RACE_OVERRIDES = {
     },
     cx: {
         cyclocross: 0.45
+    },
+    track: {
+        track_pursuit: 0.20
     },
     mtb: {
         trail: 0.48
@@ -56,4 +71,12 @@ export function estimateCda({ bikeId, raceType }) {
     const baselineCda = BASELINE_CDA_BY_BIKE[bikeId] ?? 0.38;
     const raceAdjustment = RACE_TYPE_CDA_ADJUSTMENT[raceType] ?? 0;
     return Number((baselineCda + raceAdjustment).toFixed(2));
+}
+
+export function getAllowedRaceTypes(bikeId) {
+    return BIKE_RACE_TYPE_MAP[bikeId] ?? ['road_endurance'];
+}
+
+export function getDefaultRaceTypeForBike(bikeId) {
+    return getAllowedRaceTypes(bikeId)[0];
 }

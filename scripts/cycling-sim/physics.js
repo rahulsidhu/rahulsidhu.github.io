@@ -1,13 +1,18 @@
-export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency, descentControl = 'brake' }) {
+export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency, windSpeed = 0, descentControl = 'brake' }) {
     const velocity = speed / 3.6;
+    const windVelocity = windSpeed / 3.6;
+    const relativeAirVelocity = velocity + windVelocity;
     const gravity = 9.81;
-    const pAir = 0.5 * rho * cda * Math.pow(velocity, 3);
+    const pAirNet = 0.5 * rho * cda * relativeAirVelocity * Math.abs(relativeAirVelocity) * velocity;
+    const pAir = pAirNet > 0 ? pAirNet : 0;
+    const pAirAssist = pAirNet < 0 ? Math.abs(pAirNet) : 0;
     const theta = Math.atan(grade / 100);
     const pRoll = mass * gravity * Math.cos(theta) * crr * velocity;
     const pGrav = mass * gravity * Math.sin(theta) * velocity;
     const pGravSource = pGrav < 0 ? Math.abs(pGrav) : 0;
     const pGravSink = pGrav > 0 ? pGrav : 0;
-    const dragSinks = pAir + pRoll + pGravSink;
+    const totalSources = pGravSource + pAirAssist;
+    const totalSinks = pAir + pRoll + pGravSink;
     const effDecimal = efficiency / 100;
 
     let pRider = 0;
@@ -15,14 +20,14 @@ export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho
     let pBrake = 0;
     let pExcess = 0;
 
-    if (pGravSource >= dragSinks) {
+    if (totalSources >= totalSinks) {
         if (descentControl === 'coast') {
-            pExcess = pGravSource - dragSinks;
+            pExcess = totalSources - totalSinks;
         } else {
-            pBrake = pGravSource - dragSinks;
+            pBrake = totalSources - totalSinks;
         }
     } else {
-        const pWheelReq = dragSinks - pGravSource;
+        const pWheelReq = totalSinks - totalSources;
         pRider = pWheelReq / effDecimal;
         pLoss = pRider - pWheelReq;
     }
@@ -32,6 +37,8 @@ export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho
 
     return {
         pAir,
+        pAirAssist,
+        pAirNet,
         pRoll,
         pGravSource,
         pGravSink,
@@ -45,12 +52,14 @@ export function calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho
     };
 }
 
-export function solveSteadyStateSpeed({ grade, mass, cda, crr, efficiency, rho, humanEfficiency, targetRiderPower, maxSpeed = 120 }) {
+export function solveSteadyStateSpeed({ grade, mass, cda, crr, efficiency, rho, humanEfficiency, targetRiderPower, windSpeed = 0, maxSpeed = 120 }) {
     const getNetAssist = (speed) => {
         const velocity = speed / 3.6;
+        const windVelocity = windSpeed / 3.6;
+        const relativeAirVelocity = velocity + windVelocity;
         const gravity = 9.81;
         const theta = Math.atan(grade / 100);
-        const pAir = 0.5 * rho * cda * Math.pow(velocity, 3);
+        const pAir = 0.5 * rho * cda * relativeAirVelocity * Math.abs(relativeAirVelocity) * velocity;
         const pRoll = mass * gravity * Math.cos(theta) * crr * velocity;
         const pGrav = mass * gravity * Math.sin(theta) * velocity;
         return (pGrav < 0 ? Math.abs(pGrav) : 0) - (pAir + pRoll + (pGrav > 0 ? pGrav : 0));
@@ -109,6 +118,7 @@ export function solveSteadyStateSpeed({ grade, mass, cda, crr, efficiency, rho, 
         efficiency,
         rho,
         humanEfficiency
+        ,windSpeed
     }).totalWatts - targetRiderPower;
 
     let upperBound = maxSpeed;

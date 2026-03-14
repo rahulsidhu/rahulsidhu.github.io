@@ -72,8 +72,9 @@
 
     <script type="text/babel" data-type="module">
         import { BIKE_TYPES, PRESETS, DEFAULT_SCENARIO } from './scripts/cycling-sim/config.js';
+        import { RACE_TYPES, estimateCda } from './scripts/cycling-sim/aero.js';
         import { calculateCadence, selectActiveGear } from './scripts/cycling-sim/drivetrain.js';
-        import { calculatePhysics } from './scripts/cycling-sim/physics.js';
+        import { calculatePhysics, solveSteadyStateSpeed } from './scripts/cycling-sim/physics.js';
         import { buildSankeyData } from './scripts/cycling-sim/sankey.js';
 
         const { useState, useMemo, useEffect, useRef } = React;
@@ -312,10 +313,15 @@
         };
 
         function App() {
+            const [driverMode, setDriverMode] = useState(DEFAULT_SCENARIO.driverMode);
+            const [descentControl, setDescentControl] = useState(DEFAULT_SCENARIO.descentControl);
+            const [aeroMode, setAeroMode] = useState(DEFAULT_SCENARIO.aeroMode);
+            const [raceType, setRaceType] = useState(DEFAULT_SCENARIO.raceType);
             const [speed, setSpeed] = useState(DEFAULT_SCENARIO.speed);
+            const [riderPower, setRiderPower] = useState(DEFAULT_SCENARIO.riderPower);
             const [grade, setGrade] = useState(DEFAULT_SCENARIO.grade);
             const [mass, setMass] = useState(DEFAULT_SCENARIO.mass);
-            const [cda, setCda] = useState(DEFAULT_SCENARIO.cda);
+            const [manualCda, setManualCda] = useState(DEFAULT_SCENARIO.manualCda);
             const [crr, setCrr] = useState(DEFAULT_SCENARIO.crr);
             const [efficiency, setEfficiency] = useState(DEFAULT_SCENARIO.efficiency);
             const [rho, setRho] = useState(DEFAULT_SCENARIO.rho);
@@ -331,10 +337,38 @@
                 setBikeId(p.bike);
                 setManualFrontIdx(DEFAULT_SCENARIO.manualFrontIdx);
                 setManualRearIdx(DEFAULT_SCENARIO.manualRearIdx);
+                setDriverMode('speed');
+                setAeroMode('derived');
+                setRaceType(p.raceType || DEFAULT_SCENARIO.raceType);
                 setSpeed(p.speed); setGrade(p.grade); setMass(p.mass);
-                setCda(p.cda); setCrr(p.crr); setEfficiency(p.efficiency); setRho(p.rho);
+                setManualCda(p.cda); setCrr(p.crr); setEfficiency(p.efficiency); setRho(p.rho);
                 setHumanEfficiency(p.humanEff);
             };
+
+            const resolvedCda = useMemo(() => {
+                if (aeroMode === 'manual') {
+                    return manualCda;
+                }
+
+                return estimateCda({ bikeId, raceType });
+            }, [aeroMode, manualCda, bikeId, raceType]);
+
+            const resolvedSpeed = useMemo(() => {
+                if (driverMode === 'speed') {
+                    return speed;
+                }
+
+                return solveSteadyStateSpeed({
+                    grade,
+                    mass,
+                    cda: resolvedCda,
+                    crr,
+                    efficiency,
+                    rho,
+                    humanEfficiency,
+                    targetRiderPower: riderPower
+                });
+            }, [driverMode, speed, riderPower, grade, mass, resolvedCda, crr, efficiency, rho, humanEfficiency]);
 
             const activeGear = useMemo(() => {
                 return selectActiveGear({
@@ -342,22 +376,33 @@
                     shiftMode,
                     manualFrontIdx,
                     manualRearIdx,
-                    speed,
+                    speed: resolvedSpeed,
                     targetCadence
                 });
-            }, [bikeId, shiftMode, manualFrontIdx, manualRearIdx, speed, targetCadence]);
+            }, [bikeId, shiftMode, manualFrontIdx, manualRearIdx, resolvedSpeed, targetCadence]);
 
             const currentBike = BIKE_TYPES[bikeId];
             const frontTeeth = currentBike.chainrings[activeGear.crIdx];
             const rearTeeth = currentBike.cassette[activeGear.cogIdx];
             const gearRatio = frontTeeth / rearTeeth;
-            const actualCadence = calculateCadence(speed, frontTeeth, rearTeeth, currentBike.circ);
+            const actualCadence = calculateCadence(resolvedSpeed, frontTeeth, rearTeeth, currentBike.circ);
 
             const physics = useMemo(() => {
-                return calculatePhysics({ speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency });
-            }, [speed, grade, mass, cda, crr, efficiency, rho, humanEfficiency]);
+                return calculatePhysics({ speed: resolvedSpeed, grade, mass, cda: resolvedCda, crr, efficiency, rho, humanEfficiency, descentControl });
+            }, [resolvedSpeed, grade, mass, resolvedCda, crr, efficiency, rho, humanEfficiency, descentControl]);
 
             const sankey = useMemo(() => buildSankeyData(physics), [physics]);
+            const downhillMessage = useMemo(() => {
+                if (physics.pBrake > 0.5) {
+                    return `Holding ${resolvedSpeed.toFixed(1)} km/h on this descent requires about ${Math.round(physics.pBrake)} W of braking.`;
+                }
+
+                if (physics.pExcess > 0.5) {
+                    return `At ${resolvedSpeed.toFixed(1)} km/h gravity still exceeds drag by about ${Math.round(physics.pExcess)} W, so the bike would continue accelerating if you do not brake.`;
+                }
+
+                return null;
+            }, [physics.pBrake, physics.pExcess, resolvedSpeed]);
 
             return (
                 <div className="min-h-screen bg-paper text-ink p-4 md:p-8">
@@ -391,6 +436,63 @@
                                         <CogIcon className="w-4 h-4 text-physics-loss" /> Drivetrain & Scenarios
                                     </h3>
                                     <div className="space-y-6">
+                                        <div className="space-y-3">
+                                                <div className="space-y-3">
+                                                    <label className="text-xs text-ink-muted uppercase tracking-wider">Aero Model</label>
+                                                    <div className="flex border border-ink-light">
+                                                        <button onClick={() => setAeroMode('derived')} className={`flex-1 py-2 text-xs transition-colors border-r border-ink-light ${aeroMode === 'derived' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>DERIVED C_dA</button>
+                                                        <button onClick={() => setAeroMode('manual')} className={`flex-1 py-2 text-xs transition-colors ${aeroMode === 'manual' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>MANUAL C_dA</button>
+                                                    </div>
+                                                    {aeroMode === 'derived' ? (
+                                                        <div className="space-y-3 pt-2">
+                                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Race Type</label>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                {Object.values(RACE_TYPES).map((race) => (
+                                                                    <button key={race.id} onClick={() => setRaceType(race.id)} className={`px-2 py-2 border transition-colors text-xs text-left ${raceType === race.id ? 'bg-ink text-paper border-ink' : 'bg-paper text-ink border-ink-light hover:bg-[#ebe7e0]'}`}>
+                                                                        {race.name}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-xs text-ink-muted">CdA is inferred from bike type and event posture. Current estimate: {resolvedCda.toFixed(2)} m².</p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-2 pt-2">
+                                                            <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#c0392b' }}>
+                                                                <label>C_dA</label>
+                                                                <span>{manualCda.toFixed(2)} m²</span>
+                                                            </div>
+                                                            <input type="range" min="0.15" max="0.65" step="0.01" value={manualCda} onChange={e => setManualCda(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#c0392b' }} />
+                                                            <p className="text-xs text-ink-muted">Manual mode overrides bike and race assumptions.</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                            <label className="text-xs text-ink-muted uppercase tracking-wider">Simulation Driver</label>
+                                            <div className="flex border border-ink-light">
+                                                <button onClick={() => setDriverMode('speed')} className={`flex-1 py-2 text-xs transition-colors border-r border-ink-light ${driverMode === 'speed' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>SPEED INPUT</button>
+                                                <button onClick={() => setDriverMode('power')} className={`flex-1 py-2 text-xs transition-colors ${driverMode === 'power' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>POWER INPUT</button>
+                                            </div>
+                                            {driverMode === 'speed' ? (
+                                                <div className="space-y-2 pt-2">
+                                                    <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#1a1814' }}>
+                                                        <label>Speed</label>
+                                                        <span>{speed} km/h</span>
+                                                    </div>
+                                                    <input type="range" min="0" max="80" step="1" value={speed} onChange={e => setSpeed(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#1a1814' }} />
+                                                    <p className="text-xs text-ink-muted">You set steady-state speed and the simulator computes required rider power.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2 pt-2">
+                                                    <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: '#1a1814' }}>
+                                                        <label>Rider Power</label>
+                                                        <span>{riderPower} W</span>
+                                                    </div>
+                                                    <input type="range" min="0" max="600" step="5" value={riderPower} onChange={e => setRiderPower(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: '#1a1814' }} />
+                                                    <p className="text-xs text-ink-muted">You set steady-state rider power and the simulator solves for equilibrium speed.</p>
+                                                </div>
+                                            )}
+                                        </div>
+
                                         <div className="space-y-3">
                                             <label className="text-xs text-ink-muted uppercase tracking-wider">Presets</label>
                                             <div className="grid grid-cols-2 gap-2">
@@ -444,10 +546,8 @@
                                 <div className="space-y-6 pt-4">
                                     <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2">Environment</h3>
                                     {[
-                                        { label: 'Speed', val: speed, unit: 'km/h', set: setSpeed, min: 0, max: 80, step: 1, accent: '#1a1814' },
                                         { label: 'Grade', val: grade, unit: '%', set: setGrade, min: -15, max: 20, step: 0.1, accent: '#1a6090' },
                                         { label: 'Mass', val: mass, unit: 'kg', set: setMass, min: 50, max: 130, step: 1, accent: '#5a5650' },
-                                        { label: 'Aero (CdA)', val: cda, unit: 'm²', set: setCda, min: 0.15, max: 0.65, step: 0.01, accent: '#c0392b' },
                                     ].map((item, i) => (
                                         <div key={i} className="space-y-2">
                                             <div className="flex justify-between text-xs items-center uppercase tracking-wider font-bold" style={{ color: item.accent }}>
@@ -457,29 +557,40 @@
                                             <input type="range" min={item.min} max={item.max} step={item.step} value={item.val} onChange={e => item.set(Number(e.target.value))} className="w-full h-1 bg-ink-light appearance-none cursor-pointer" style={{ accentColor: item.accent }} />
                                         </div>
                                     ))}
+
+                                    <div className="space-y-3 pt-2">
+                                        <label className="text-xs text-ink-muted uppercase tracking-wider">Advanced Assumption</label>
+                                        <div className="flex border border-ink-light">
+                                            <button onClick={() => setDescentControl('brake')} className={`flex-1 py-2 text-xs transition-colors border-r border-ink-light ${descentControl === 'brake' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>HOLD SPEED WITH BRAKES</button>
+                                            <button onClick={() => setDescentControl('coast')} className={`flex-1 py-2 text-xs transition-colors ${descentControl === 'coast' ? 'bg-ink text-paper' : 'bg-paper text-ink hover:bg-[#ebe7e0]'}`}>FREE COAST</button>
+                                        </div>
+                                        <p className="text-xs text-ink-muted">On descents, choose whether extra gravity is modeled as braking heat or as acceleration reserve beyond the current speed.</p>
+                                    </div>
                                 </div>
                             </aside>
 
                             <main className="lg:col-span-8 space-y-8">
                                 <AnimatedCyclist 
-                                    speed={speed} 
+                                    speed={resolvedSpeed} 
                                     grade={grade} 
                                     power={physics.totalWatts} 
-                                    cda={cda} 
+                                    cda={resolvedCda} 
                                     cadence={actualCadence}
                                     frontTeeth={frontTeeth}
                                     rearTeeth={rearTeeth}
                                     bikeId={bikeId}
                                 />
 
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-ink-light">
+                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-0 border border-ink-light">
                                     {[
+                                        { label: 'Speed', value: resolvedSpeed.toFixed(1), unit: 'km/h', sub: driverMode === 'speed' ? 'Input' : 'Solved Output', color: '#1a6090' },
+                                        { label: 'C_dA', value: resolvedCda.toFixed(2), unit: 'm²', sub: aeroMode === 'derived' ? RACE_TYPES[raceType].name : 'Manual Override', color: '#c0392b' },
                                         { label: 'Cadence', value: Math.round(actualCadence), unit: 'RPM', sub: `Ratio: ${gearRatio.toFixed(2)}`, color: '#6c3483' },
                                         { label: 'Mech Power', value: Math.round(physics.totalWatts), unit: 'W', sub: `${(physics.totalWatts / mass).toFixed(1)} W/kg`, color: '#1a1814' },
                                         { label: 'Metabolic', value: Math.round(physics.pMetabolic), unit: 'W', sub: `${Math.round(physics.pMetabolic * 0.86)} kcal/h`, color: '#5a5650' },
                                         { label: 'Resistance', value: Math.round(physics.pAir + physics.pRoll), unit: 'W', sub: 'Total Drag', color: '#c0392b' },
                                     ].map((card, i) => (
-                                        <div key={i} className={`p-4 flex flex-col justify-between ${i !== 0 ? 'border-l border-ink-light' : ''} ${i > 1 ? 'border-t md:border-t-0 border-ink-light' : ''}`}>
+                                        <div key={i} className={`p-4 flex flex-col justify-between ${i !== 0 ? 'border-l border-ink-light' : ''} ${i > 1 ? 'border-t lg:border-t-0 border-ink-light' : ''}`}>
                                             <span className="text-xs text-ink-muted uppercase tracking-wider">{card.label}</span>
                                             <div className={`mt-3 flex items-baseline gap-1 font-bold`} style={{ color: card.color }}>
                                                 <span className="text-3xl font-normal tracking-tight">{card.value}</span>
@@ -489,6 +600,13 @@
                                         </div>
                                     ))}
                                 </div>
+
+                                {downhillMessage && (
+                                    <div className={`border p-4 text-sm ${physics.pExcess > 0.5 ? 'border-physics-kit bg-[#e7f5f1] text-ink' : 'border-ink-light bg-[#ebe7e0]/60 text-ink'}`}>
+                                        <span className="font-bold uppercase tracking-wider text-xs block mb-2">Descent Assumption</span>
+                                        <p>{downhillMessage}</p>
+                                    </div>
+                                )}
 
                                 <section className="pt-4">
                                     <h3 className="text-sm text-ink uppercase tracking-wider border-b border-ink-light pb-2 mb-6">Energy Flow (Watts)</h3>

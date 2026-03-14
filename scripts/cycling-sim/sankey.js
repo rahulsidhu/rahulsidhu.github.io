@@ -15,7 +15,8 @@ export function buildSankeyData(physics) {
         { id: 'air', name: 'Air Resistance', val: physics.pAir, color: '#c0392b' },
         { id: 'roll', name: 'Rolling Res.', val: physics.pRoll, color: '#c47a0a' },
         { id: 'gravSnk', name: 'Gravity Climb', val: physics.pGravSink, color: '#1a6090' },
-        { id: 'brake', name: 'Brake Heat', val: physics.pBrake, color: '#5a5650' }
+        { id: 'brake', name: 'Brake Heat', val: physics.pBrake, color: '#5a5650' },
+        { id: 'excess', name: 'Accel Reserve', val: physics.pExcess, color: '#16a085' }
     ].filter((sink) => sink.val > 0.5);
 
     const totalSource = sources.reduce((sum, source) => sum + source.val, 0);

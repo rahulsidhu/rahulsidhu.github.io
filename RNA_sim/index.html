@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive RNA world soup simulator exploring spontaneous replicator emergence, mutation, parasites, and collapse dynamics.">
+    <title>RNA World Soup Simulator</title>
+    <link rel="stylesheet" href="rna-soup-sim.css">
+</head>
+<body>
+    <main class="sim-page">
+        <section class="hero-panel">
+            <p class="eyebrow">Prebiotic Dynamics</p>
+            <h1>RNA World Soup Simulator</h1>
+            <p class="lede">A live particle simulation of monomers, oligomers, replicators, and parasites competing in a bounded soup. Tune mutation, replenishment, and parasite pressure to surface emergence, takeover, collapse, and recovery.</p>
+            <div class="hero-actions">
+                <a href="../index.html" class="text-link">Back to home</a>
+                <button type="button" id="reset-top" class="ghost-button">Reset soup</button>
+            </div>
+        </section>
+
+        <section class="workspace-grid">
+            <div class="sim-stage panel">
+                <div class="stage-header">
+                    <div>
+                        <h2>Simulation</h2>
+                        <p class="subtle">Hover bright replicators to inspect sequence and catalytic status.</p>
+                    </div>
+                    <div class="status-strip" id="status-strip"></div>
+                </div>
+                <div class="canvas-shell">
+                    <canvas id="sim-canvas" width="800" height="600" aria-label="RNA world soup simulation"></canvas>
+                    <div id="hover-card" class="hover-card" hidden></div>
+                </div>
+            </div>
+
+            <aside class="control-stack">
+                <section class="panel controls-panel">
+                    <div class="section-head">
+                        <h2>Controls</h2>
+                        <div class="button-row">
+                            <button type="button" id="pause-button" class="primary-button">Pause</button>
+                            <button type="button" id="reset-button" class="ghost-button">Reset</button>
+                        </div>
+                    </div>
+                    <form id="controls-form" class="controls-form"></form>
+                </section>
+
+                <section class="panel summary-panel">
+                    <h2>Population Snapshot</h2>
+                    <div class="metric-grid" id="metric-grid"></div>
+                </section>
+
+                <section class="panel log-panel">
+                    <div class="section-head compact">
+                        <h2>Event Log</h2>
+                        <span class="subtle">Latest transitions</span>
+                    </div>
+                    <div id="event-log" class="event-log" aria-live="polite"></div>
+                </section>
+            </aside>
+        </section>
+
+        <section class="panel chart-panel">
+            <div class="section-head compact">
+                <div>
+                    <h2>Population History</h2>
+                    <p class="subtle">Sampled every 10 ticks, capped rolling window.</p>
+                </div>
+                <div class="chart-legend">
+                    <span class="legend-chip monomers">Monomers</span>
+                    <span class="legend-chip oligomers">Oligomers</span>
+                    <span class="legend-chip replicators">Replicators</span>
+                    <span class="legend-chip parasites">Parasites</span>
+                </div>
+            </div>
+            <canvas id="history-canvas" width="1200" height="280" aria-label="Population history chart"></canvas>
+        </section>
+
+        <section class="panel notes-panel">
+            <h2>What To Look For</h2>
+            <div class="notes-grid">
+                <article>
+                    <h3>Spontaneous Emergence</h3>
+                    <p>Keep mutation modest and assembly nonzero. Oligomers should accumulate until a GC-rich chain crosses the catalytic threshold.</p>
+                </article>
+                <article>
+                    <h3>Error Catastrophe</h3>
+                    <p>Raise mutation into the high single-digit percentage range and watch inherited information decay faster than copying can preserve it.</p>
+                </article>
+                <article>
+                    <h3>Parasite Crash</h3>
+                    <p>Increase parasite rate once replicators are established to trigger a classic exploit-and-collapse cycle.</p>
+                </article>
+                <article>
+                    <h3>Resource Bottlenecks</h3>
+                    <p>Lower replenishment or monomer abundance to force competition and crash dynamics driven by depletion instead of mutation.</p>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <script src="rna-soup-sim.js"></script>
+</body>
+</html>

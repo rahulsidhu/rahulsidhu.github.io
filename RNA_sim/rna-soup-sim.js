@@ -21,12 +21,72 @@
         speed: 1
     };
     const CONTROL_CONFIG = [
-        { key: 'mutationRate', label: 'Mutation rate', min: 0, max: 5, step: 0.1, suffix: '%', format: (value) => value.toFixed(1) + '%' },
-        { key: 'monomerAbundance', label: 'Monomer abundance', min: 100, max: 2000, step: 10, suffix: '', format: (value) => Math.round(value).toString() },
-        { key: 'replenishmentRate', label: 'Replenishment rate', min: 0, max: 20, step: 0.5, suffix: '/tick', format: (value) => value.toFixed(1) + '/tick' },
-        { key: 'assemblyRate', label: 'Spontaneous assembly', min: 0, max: 0.01, step: 0.0001, suffix: '', format: (value) => value.toFixed(4) },
-        { key: 'parasiteRate', label: 'Parasite rate', min: 0, max: 0.005, step: 0.0001, suffix: '', format: (value) => value.toFixed(4) },
-        { key: 'speed', label: 'Simulation speed', min: 0.1, max: 10, step: 0.1, suffix: 'x', format: (value) => value.toFixed(1) + 'x' }
+        {
+            key: 'mutationRate',
+            label: 'Mutation rate',
+            min: 0,
+            max: 5,
+            step: 0.1,
+            suffix: '%',
+            format: (value) => value.toFixed(1) + '%',
+            description: 'Per-nucleotide copy error probability. Raising it increases novelty, but also makes inherited sequence identity harder to preserve.',
+            effect: 'Low values favour stable lineages. High values can trigger error catastrophe.'
+        },
+        {
+            key: 'monomerAbundance',
+            label: 'Monomer abundance',
+            min: 100,
+            max: 2000,
+            step: 10,
+            suffix: '',
+            format: (value) => Math.round(value).toString(),
+            description: 'Starting size of the free nucleotide pool and the rough refill ceiling for the soup.',
+            effect: 'Higher values delay scarcity. Lower values make competition and depletion appear earlier.'
+        },
+        {
+            key: 'replenishmentRate',
+            label: 'Replenishment rate',
+            min: 0,
+            max: 20,
+            step: 0.5,
+            suffix: '/tick',
+            format: (value) => value.toFixed(1) + '/tick',
+            description: 'Background inflow of fresh monomers each tick.',
+            effect: 'Higher values support sustained growth. Lower values turn replication into a stronger drain on the system.'
+        },
+        {
+            key: 'assemblyRate',
+            label: 'Spontaneous assembly',
+            min: 0,
+            max: 0.01,
+            step: 0.0001,
+            suffix: '',
+            format: (value) => value.toFixed(4),
+            description: 'Chance that nearby free monomers form new short oligomers without catalytic help.',
+            effect: 'Too low and emergence is rare. Higher values seed more raw material for later replicators.'
+        },
+        {
+            key: 'parasiteRate',
+            label: 'Parasite rate',
+            min: 0,
+            max: 0.005,
+            step: 0.0001,
+            suffix: '',
+            format: (value) => value.toFixed(4),
+            description: 'Background probability that exploiter sequences appear in the soup.',
+            effect: 'Low values let catalytic lineages establish. Higher values produce invasion, overload, and collapse cycles.'
+        },
+        {
+            key: 'speed',
+            label: 'Simulation speed',
+            min: 0.1,
+            max: 10,
+            step: 0.1,
+            suffix: 'x',
+            format: (value) => value.toFixed(1) + 'x',
+            description: 'Visual playback rate for the simulation loop.',
+            effect: 'Does not change the rules. It only changes how quickly you watch the same dynamics unfold.'
+        }
     ];
 
     const elements = {
@@ -818,7 +878,9 @@
                 '<label for="control-' + control.key + '">' + control.label + '</label>' +
                 '<span class="control-readout" id="readout-' + control.key + '">' + control.format(value) + '</span>' +
                 '</div>' +
+                '<p class="control-description">' + control.description + '</p>' +
                 '<input id="control-' + control.key + '" name="' + control.key + '" type="range" min="' + control.min + '" max="' + control.max + '" step="' + control.step + '" value="' + value + '">' +
+                '<p class="control-effect"><strong>Effect:</strong> ' + control.effect + '</p>' +
                 '</div>';
         }).join('');
     }

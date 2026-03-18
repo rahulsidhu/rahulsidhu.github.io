@@ -312,6 +312,26 @@ h2 {
     text-transform: uppercase;
 }
 
+.control-description,
+.control-effect {
+    margin: 0 0 10px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--muted);
+}
+
+.control-effect {
+    margin: 10px 0 0;
+}
+
+.control-effect strong {
+    color: var(--ink);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .control-readout {
     font-size: 0.86rem;
     color: var(--accent);
@@ -377,6 +397,10 @@ input[type="range"] {
     margin-top: 20px;
 }
 
+.explainer-panel {
+    margin-bottom: 20px;
+}
+
 .chart-legend {
     display: flex;
     gap: 10px;
@@ -426,6 +450,14 @@ input[type="range"] {
     margin-top: 18px;
 }
 
+.explainer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.parameter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .notes-grid article {
     padding: 16px;
     border-radius: 18px;
@@ -449,7 +481,9 @@ input[type="range"] {
         grid-template-columns: 1fr;
     }
 
-    .notes-grid {
+    .notes-grid,
+    .explainer-grid,
+    .parameter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -473,7 +507,9 @@ input[type="range"] {
     }
 
     .metric-grid,
-    .notes-grid {
+    .notes-grid,
+    .explainer-grid,
+    .parameter-grid {
         grid-template-columns: 1fr;
     }
 }

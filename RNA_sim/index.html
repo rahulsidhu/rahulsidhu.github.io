@@ -19,6 +19,33 @@
             </div>
         </section>
 
+        <section class="panel explainer-panel">
+            <div class="section-head compact">
+                <div>
+                    <h2>How To Read This Simulation</h2>
+                    <p class="subtle">This is a deliberately simplified RNA world model: the point is not exact chemistry, but the population-level logic of copying, mutation, competition, and collapse.</p>
+                </div>
+            </div>
+            <div class="notes-grid explainer-grid">
+                <article>
+                    <h3>What The Particles Mean</h3>
+                    <p>Blue, yellow, green, and red dots are free nucleotides. Grey clusters are oligomers: short chains that have assembled, but cannot yet catalyse their own copying. Bright cyan-white circles are replicators. Orange shapes are parasites that can be copied by replicators without contributing any catalytic capacity themselves.</p>
+                </article>
+                <article>
+                    <h3>When A Replicator Appears</h3>
+                    <p>A chain becomes catalytic once it is long enough and sufficiently rich in G and C. In this model, that means length at least 12 and GC content at least 40%. More GC-rich sequences are treated as more stable, so they decay more slowly and generally copy more efficiently.</p>
+                </article>
+                <article>
+                    <h3>Why The Population Changes</h3>
+                    <p>Every successful copy consumes monomers. Every mutation risks degrading a lineage. Every parasite diverts time and raw material away from catalytic chains. The interesting behaviour comes from those feedback loops: growth creates scarcity, scarcity changes fitness, and fitness changes which sequences dominate.</p>
+                </article>
+                <article>
+                    <h3>How To Use The Graph And Log</h3>
+                    <p>The population chart shows whether the system is accumulating material, stabilising, oscillating, or crashing. The event log only calls out notable transitions, such as first emergence, parasite invasion, lineage extinction, error catastrophe, and mutational rescue. Use both together; the graph shows trend, the log shows regime change.</p>
+                </article>
+            </div>
+        </section>
+
         <section class="workspace-grid">
             <div class="sim-stage panel">
                 <div class="stage-header">
@@ -95,6 +122,36 @@
                 <article>
                     <h3>Resource Bottlenecks</h3>
                     <p>Lower replenishment or monomer abundance to force competition and crash dynamics driven by depletion instead of mutation.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="panel notes-panel">
+            <h2>Parameter Guide</h2>
+            <div class="notes-grid parameter-grid">
+                <article>
+                    <h3>Mutation Rate</h3>
+                    <p>This is the per-nucleotide copy error probability. Low values preserve information and let stable lineages accumulate. High values push the system toward error catastrophe, where copying still happens but inherited sequence identity is not preserved.</p>
+                </article>
+                <article>
+                    <h3>Monomer Abundance</h3>
+                    <p>This sets the initial size of the free resource pool and indirectly the ceiling that replenishment can refill toward. Larger pools delay scarcity and make emergence easier. Smaller pools force competition much earlier.</p>
+                </article>
+                <article>
+                    <h3>Replenishment Rate</h3>
+                    <p>This is the background flow of new monomers into the soup. Higher replenishment can sustain larger catalytic populations. Lower replenishment makes every replication event more costly because consumed monomers are replaced slowly.</p>
+                </article>
+                <article>
+                    <h3>Spontaneous Assembly</h3>
+                    <p>This controls how often random monomers form short chains without any catalytic help. If set too low, the soup may struggle to produce enough raw oligomers for a replicator to emerge. If set high, the background becomes crowded with non-catalytic material.</p>
+                </article>
+                <article>
+                    <h3>Parasite Rate</h3>
+                    <p>This determines how often exploiter sequences appear from the background. Parasites are most damaging after replicators already exist, because they can hijack copying effort and drain monomers without adding new catalytic capacity.</p>
+                </article>
+                <article>
+                    <h3>Simulation Speed</h3>
+                    <p>This changes how quickly ticks advance on screen. It does not alter the rules, only how fast you watch them play out. Slow it down to inspect emergence; speed it up when you want to see longer ecological cycles.</p>
                 </article>
             </div>
         </section>

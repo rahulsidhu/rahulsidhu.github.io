@@ -72,6 +72,28 @@
 </head>
 <body class="min-h-screen font-sans text-ink antialiased">
     <div id="root"></div>
-    <script type="text/babel" src="./fisher-sex-ratio-simulator.jsx"></script>
+    <script>
+        (async function bootstrapFisherSimulator() {
+            try {
+                const response = await fetch('./fisher-sex-ratio-simulator.jsx', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(`Failed to load simulator source: ${response.status}`);
+                }
+
+                const source = await response.text();
+                const compiled = Babel.transform(source, {
+                    presets: ['react']
+                }).code;
+
+                (0, eval)(compiled);
+            } catch (error) {
+                console.error(error);
+                const root = document.getElementById('root');
+                if (root) {
+                    root.innerHTML = '<main style="max-width: 720px; margin: 4rem auto; padding: 2rem; font-family: IBM Plex Sans, sans-serif; color: #16130f;"><h1 style="font-family: Fraunces, serif; font-size: 2.25rem; margin-bottom: 1rem;">Simulation failed to load</h1><p style="line-height: 1.7; color: #4f4a44;">The page shell loaded, but the React component did not compile. Check the browser console for the specific error.</p><p style="margin-top: 1rem;"><a href="../index.html" style="color: #16130f;">Back to home</a></p></main>';
+                }
+            }
+        })();
+    </script>
 </body>
 </html>

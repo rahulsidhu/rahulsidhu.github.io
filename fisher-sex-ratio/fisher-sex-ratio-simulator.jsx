@@ -1,18 +1,4 @@
 const { useEffect, useRef, useState } = React;
-const {
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    ReferenceLine,
-    BarChart,
-    Bar,
-    Cell
-} = Recharts;
 
 const HISTORY_LIMIT = 500;
 const HISTOGRAM_BINS = 20;
@@ -368,10 +354,6 @@ function formatPercent(value) {
     return `${Math.round(value * 100)}%`;
 }
 
-function formatRatio(value) {
-    return value.toFixed(3);
-}
-
 function toneClass(tone) {
     if (tone === 'signal') {
         return 'border-l-male bg-male/8';
@@ -433,6 +415,130 @@ function PresetButton({ preset, active, onClick }) {
         >
             {preset.label}
         </button>
+    );
+}
+
+function ChartShell({ children }) {
+    return (
+        <div className="mt-6 rounded-[1.5rem] border border-line/80 bg-white/75 p-3 sm:p-5">
+            {children}
+        </div>
+    );
+}
+
+function SeriesLegend() {
+    return (
+        <div className="mb-3 flex flex-wrap gap-3 text-xs text-ess">
+            <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-6 rounded-full bg-male"></span>
+                Actual sex ratio
+            </span>
+            <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-6 rounded-full bg-ember"></span>
+                Mean sex-ratio gene
+            </span>
+            <span className="inline-flex items-center gap-2">
+                <span className="h-0.5 w-6 bg-ess"></span>
+                ESS (Fisher)
+            </span>
+        </div>
+    );
+}
+
+function LineHistoryChart({ data }) {
+    const width = 760;
+    const height = 320;
+    const margin = { top: 20, right: 22, bottom: 34, left: 42 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+    const maxGeneration = Math.max(1, data.length > 0 ? data[data.length - 1].generation : 1);
+
+    function xFor(generation) {
+        return margin.left + (generation / maxGeneration) * innerWidth;
+    }
+
+    function yFor(value) {
+        return margin.top + (1 - value) * innerHeight;
+    }
+
+    const sexRatioPath = data.map((point, index) => `${index === 0 ? 'M' : 'L'} ${xFor(point.generation).toFixed(2)} ${yFor(point.sexRatioMale).toFixed(2)}`).join(' ');
+    const genePath = data.map((point, index) => `${index === 0 ? 'M' : 'L'} ${xFor(point.generation).toFixed(2)} ${yFor(point.meanGene).toFixed(2)}`).join(' ');
+    const ticksY = [0, 0.25, 0.5, 0.75, 1];
+    const tickCountX = 5;
+    const ticksX = Array.from({ length: tickCountX + 1 }, (_, index) => Math.round((maxGeneration * index) / tickCountX));
+
+    return (
+        <div>
+            <SeriesLegend />
+            <svg viewBox={`0 0 ${width} ${height}`} className="h-[290px] w-full" role="img" aria-label="Population sex ratio history chart">
+                <rect x="0" y="0" width={width} height={height} fill="transparent" />
+                {ticksY.map((tick) => {
+                    const y = yFor(tick);
+                    return (
+                        <g key={tick}>
+                            <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="rgba(108,106,99,0.18)" strokeDasharray={tick === 0.5 ? '7 5' : '4 4'} />
+                            <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#6c6a63">{tick.toFixed(2)}</text>
+                        </g>
+                    );
+                })}
+                {ticksX.map((tick, index) => {
+                    const x = xFor(tick);
+                    return (
+                        <g key={`${tick}-${index}`}>
+                            <line x1={x} y1={margin.top} x2={x} y2={height - margin.bottom} stroke="rgba(108,106,99,0.1)" />
+                            <text x={x} y={height - 10} textAnchor="middle" fontSize="11" fill="#6c6a63">{tick}</text>
+                        </g>
+                    );
+                })}
+                <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#6c6a63" />
+                <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#6c6a63" />
+                <line x1={margin.left} y1={yFor(0.5)} x2={width - margin.right} y2={yFor(0.5)} stroke="#6c6a63" strokeDasharray="7 5" />
+                <text x={width - margin.right} y={yFor(0.5) - 8} textAnchor="end" fontSize="11" fill="#6c6a63">ESS (Fisher)</text>
+                <path d={sexRatioPath} fill="none" stroke="#2f6f7e" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                <path d={genePath} fill="none" stroke="#b34a2b" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                <text x={width / 2} y={height - 2} textAnchor="middle" fontSize="12" fill="#6c6a63">Generation</text>
+            </svg>
+        </div>
+    );
+}
+
+function HistogramChart({ data }) {
+    const width = 760;
+    const height = 280;
+    const margin = { top: 16, right: 12, bottom: 34, left: 42 };
+    const innerWidth = width - margin.left - margin.right;
+    const innerHeight = height - margin.top - margin.bottom;
+    const maxCount = Math.max(1, ...data.map((bin) => bin.count));
+    const barWidth = innerWidth / data.length;
+
+    return (
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Gene distribution histogram">
+            <rect x="0" y="0" width={width} height={height} fill="transparent" />
+            {[0, 0.25, 0.5, 0.75, 1].map((fraction) => {
+                const y = margin.top + innerHeight - (fraction * innerHeight);
+                const tickValue = Math.round(maxCount * fraction);
+                return (
+                    <g key={fraction}>
+                        <line x1={margin.left} y1={y} x2={width - margin.right} y2={y} stroke="rgba(108,106,99,0.14)" strokeDasharray="3 3" />
+                        <text x={margin.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#6c6a63">{tickValue}</text>
+                    </g>
+                );
+            })}
+            {data.map((bin, index) => {
+                const barHeight = (bin.count / maxCount) * innerHeight;
+                const x = margin.left + index * barWidth + 1;
+                const y = margin.top + innerHeight - barHeight;
+                return (
+                    <g key={bin.label}>
+                        <rect x={x} y={y} width={Math.max(1, barWidth - 2)} height={barHeight} rx="4" fill={bin.fill} opacity="0.9" />
+                        {index % 2 === 0 ? <text x={x + (barWidth / 2)} y={height - 10} textAnchor="middle" fontSize="10" fill="#6c6a63">{bin.label}</text> : null}
+                    </g>
+                );
+            })}
+            <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="#6c6a63" />
+            <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="#6c6a63" />
+            <text x={width / 2} y={height - 2} textAnchor="middle" fontSize="12" fill="#6c6a63">Sex-ratio gene bin</text>
+        </svg>
     );
 }
 
@@ -586,24 +692,9 @@ function FisherSexRatioSimulator() {
                                     The blue line is the actual proportion of males. The rust line is the inherited gene. Both should be pulled toward 0.50 when variation is available.
                                 </p>
                             </div>
-                            <div className="mt-6 h-[340px] rounded-[1.5rem] border border-line/80 bg-white/75 p-3 sm:p-5">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={display.history} margin={{ top: 10, right: 18, left: -16, bottom: 8 }}>
-                                        <CartesianGrid stroke="rgba(108, 106, 99, 0.18)" strokeDasharray="4 4" />
-                                        <XAxis dataKey="generation" tick={{ fill: '#6c6a63', fontSize: 12 }} minTickGap={28} />
-                                        <YAxis domain={[0, 1]} tick={{ fill: '#6c6a63', fontSize: 12 }} tickFormatter={(value) => value.toFixed(1)} />
-                                        <Tooltip
-                                            formatter={(value, name) => [Number(value).toFixed(3), name]}
-                                            labelFormatter={(value) => `Generation ${value}`}
-                                            contentStyle={{ borderRadius: '18px', borderColor: '#d8cebe', backgroundColor: '#fffaf3' }}
-                                        />
-                                        <Legend />
-                                        <ReferenceLine y={0.5} stroke="#6c6a63" strokeDasharray="7 5" label={{ value: 'ESS (Fisher)', fill: '#6c6a63', position: 'insideTopRight', fontSize: 12 }} />
-                                        <Line type="monotone" dataKey="sexRatioMale" name="Actual sex ratio" stroke="#2f6f7e" strokeWidth={3} dot={false} isAnimationActive={false} />
-                                        <Line type="monotone" dataKey="meanGene" name="Mean sex-ratio gene" stroke="#b34a2b" strokeWidth={3} dot={false} isAnimationActive={false} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
+                            <ChartShell>
+                                <LineHistoryChart data={display.history} />
+                            </ChartShell>
                         </div>
 
                         <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
@@ -616,25 +707,9 @@ function FisherSexRatioSimulator() {
                                     A wide distribution gives selection room to work. Near equilibrium, the center of gravity should bunch around 0.50 even while mutation keeps a small spread alive.
                                 </p>
                             </div>
-                            <div className="mt-6 h-[300px] rounded-[1.5rem] border border-line/80 bg-white/75 p-3 sm:p-5">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={display.histogram} margin={{ top: 8, right: 10, left: -18, bottom: 8 }}>
-                                        <CartesianGrid stroke="rgba(108, 106, 99, 0.14)" strokeDasharray="3 3" />
-                                        <XAxis dataKey="label" tick={{ fill: '#6c6a63', fontSize: 11 }} interval={1} />
-                                        <YAxis tick={{ fill: '#6c6a63', fontSize: 12 }} allowDecimals={false} />
-                                        <Tooltip
-                                            formatter={(value) => [value, 'Agents']}
-                                            labelFormatter={(label) => `Gene bin ${label}-${(Number(label) + 0.05).toFixed(2)}`}
-                                            contentStyle={{ borderRadius: '18px', borderColor: '#d8cebe', backgroundColor: '#fffaf3' }}
-                                        />
-                                        <Bar dataKey="count" radius={[6, 6, 0, 0]} isAnimationActive={false}>
-                                            {display.histogram.map((entry) => (
-                                                <Cell key={entry.label} fill={entry.fill} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                            <ChartShell>
+                                <HistogramChart data={display.histogram} />
+                            </ChartShell>
                         </div>
                     </div>
 

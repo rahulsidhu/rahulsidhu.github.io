@@ -372,29 +372,29 @@ function toneClass(tone) {
 
 function StatCard({ label, value, detail }) {
     return (
-        <div className="rounded-3xl border border-line/80 bg-white/80 p-4 shadow-sm">
+        <div className="rounded-3xl border border-line/80 bg-white/80 p-3 shadow-sm">
             <p className="text-[11px] uppercase tracking-[0.22em] text-ess">{label}</p>
-            <p className="mt-2 font-display text-2xl text-ink">{value}</p>
-            <p className="mt-1 text-sm text-ess">{detail}</p>
+            <p className="mt-1.5 font-display text-[1.65rem] leading-none text-ink">{value}</p>
+            <p className="mt-1 text-xs leading-5 text-ess">{detail}</p>
         </div>
     );
 }
 
 function SliderControl({ label, value, min, max, step, onChange, formatter, hint, delayed }) {
     return (
-        <label className="block rounded-3xl border border-line/80 bg-white/75 p-4">
+        <label className="block rounded-[1.4rem] border border-line/80 bg-white/75 p-3.5">
             <div className="flex items-start justify-between gap-4">
                 <div>
                     <p className="text-sm font-medium text-ink">{label}</p>
-                    <p className="mt-1 text-xs leading-5 text-ess">{hint}</p>
+                    <p className="mt-0.5 text-[11px] leading-5 text-ess">{hint}</p>
                 </div>
                 <div className="text-right">
-                    <p className="font-display text-xl text-ink">{formatter(value)}</p>
+                    <p className="font-display text-lg text-ink">{formatter(value)}</p>
                     {delayed ? <p className="text-[11px] uppercase tracking-[0.16em] text-ember">applies on reset</p> : null}
                 </div>
             </div>
             <input
-                className="mt-4 h-2 w-full cursor-pointer appearance-none rounded-full bg-line accent-ink"
+                className="mt-3 h-2 w-full cursor-pointer appearance-none rounded-full bg-line accent-ink"
                 type="range"
                 min={min}
                 max={max}
@@ -619,116 +619,86 @@ function FisherSexRatioSimulator() {
     return (
         <div className="relative overflow-hidden">
             <div className="pointer-events-none absolute inset-0 gene-grid opacity-40"></div>
-            <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                <section className="rounded-[2rem] border border-line/70 bg-panel p-8 shadow-panel backdrop-blur xl:p-10">
-                    <div className="flex flex-col gap-8 xl:flex-row xl:items-end xl:justify-between">
+            <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+                <section className="rounded-[2rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                    <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                         <div className="max-w-3xl">
-                            <p className="text-sm uppercase tracking-[0.3em] text-ess">The Selfish Gene Companion</p>
-                            <h1 className="mt-4 max-w-4xl font-display text-4xl leading-tight text-ink sm:text-5xl xl:text-6xl">
+                            <p className="text-[11px] uppercase tracking-[0.3em] text-ess">The Selfish Gene Companion</p>
+                            <h1 className="mt-2 max-w-4xl font-display text-3xl leading-tight text-ink sm:text-4xl xl:text-5xl">
                                 Fisher's Principle Sex Ratio Simulator
                             </h1>
-                            <p className="mt-5 max-w-3xl text-base leading-7 text-ess sm:text-lg">
-                                Selection does not need a target. If one sex becomes scarce, genes that produce more of that sex gain grandchildren faster. This model makes that feedback visible generation by generation.
+                            <p className="mt-2 max-w-3xl text-sm leading-6 text-ess sm:text-base">
+                                Watch a heritable sex-ratio gene get pulled toward 0.50 by frequency-dependent selection alone.
                             </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-3">
-                            <a href="../index.html" className="rounded-full border border-line bg-white/70 px-5 py-3 text-sm text-ink transition-colors hover:bg-white">
+                            <a href="../index.html" className="rounded-full border border-line bg-white/70 px-4 py-2.5 text-sm text-ink transition-colors hover:bg-white">
                                 Back to home
                             </a>
                             <button
                                 type="button"
                                 onClick={() => setIsRunning((current) => !current)}
-                                className="rounded-full bg-ink px-5 py-3 text-sm text-parchment transition-colors hover:bg-black"
+                                className="rounded-full bg-ink px-4 py-2.5 text-sm text-parchment transition-colors hover:bg-black"
                             >
                                 {isRunning ? 'Pause' : 'Resume'}
                             </button>
                             <button
                                 type="button"
                                 onClick={resetSimulation}
-                                className="rounded-full border border-ink bg-transparent px-5 py-3 text-sm text-ink transition-colors hover:bg-ink hover:text-parchment"
+                                className="rounded-full border border-ink bg-transparent px-4 py-2.5 text-sm text-ink transition-colors hover:bg-ink hover:text-parchment"
                             >
                                 Reset
                             </button>
                         </div>
                     </div>
 
-                    <div className="mt-8 rounded-[1.75rem] border border-line/80 bg-white/65 p-5 sm:p-6">
+                    <div className="mt-5 rounded-[1.4rem] border border-line/80 bg-white/65 p-4 sm:p-5">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div>
-                                <p className="text-xs uppercase tracking-[0.22em] text-ess">Current reading</p>
-                                <p className="mt-2 font-display text-2xl text-ink">{display.status}</p>
+                                <p className="text-[11px] uppercase tracking-[0.22em] text-ess">Current state</p>
+                                <p className="mt-1 font-display text-xl text-ink sm:text-2xl">{display.status}</p>
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                <div className="rounded-2xl bg-male/10 px-4 py-3 text-sm text-ink">
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                                <div className="rounded-2xl bg-male/10 px-3 py-2.5 text-sm text-ink">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-ess">Actual sex ratio</p>
-                                    <p className="mt-1 font-display text-2xl text-male">{formatPercent(stats.sexRatioMale)}</p>
+                                    <p className="mt-1 font-display text-xl text-male">{formatPercent(stats.sexRatioMale)}</p>
                                 </div>
-                                <div className="rounded-2xl bg-female/12 px-4 py-3 text-sm text-ink">
+                                <div className="rounded-2xl bg-female/12 px-3 py-2.5 text-sm text-ink">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-ess">Mean gene</p>
-                                    <p className="mt-1 font-display text-2xl text-ember">{stats.meanGene.toFixed(4)}</p>
+                                    <p className="mt-1 font-display text-xl text-ember">{stats.meanGene.toFixed(4)}</p>
                                 </div>
-                                <div className="rounded-2xl bg-moss/10 px-4 py-3 text-sm text-ink">
+                                <div className="rounded-2xl bg-moss/10 px-3 py-2.5 text-sm text-ink">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-ess">Gene std. dev.</p>
-                                    <p className="mt-1 font-display text-2xl text-moss">{stats.geneStd.toFixed(4)}</p>
+                                    <p className="mt-1 font-display text-xl text-moss">{stats.geneStd.toFixed(4)}</p>
                                 </div>
-                                <div className="rounded-2xl bg-white px-4 py-3 text-sm text-ink">
+                                <div className="rounded-2xl bg-white px-3 py-2.5 text-sm text-ink">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-ess">Population size</p>
-                                    <p className="mt-1 font-display text-2xl text-ink">{stats.total}</p>
+                                    <p className="mt-1 font-display text-xl text-ink">{stats.total}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <section className="mt-8 grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-                    <div className="space-y-8">
-                        <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <section className="mt-5 grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+                    <div className="space-y-5 xl:order-1">
+                        <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                            <div className="flex items-end justify-between gap-3">
                                 <div>
-                                    <p className="text-sm uppercase tracking-[0.28em] text-ess">Primary chart</p>
-                                    <h2 className="mt-2 font-display text-3xl text-ink">Population sex ratio over time</h2>
+                                    <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Controls</p>
+                                    <h2 className="mt-1 font-display text-2xl text-ink">Main controls</h2>
                                 </div>
-                                <p className="max-w-xl text-sm leading-6 text-ess">
-                                    The blue line is the actual proportion of males. The rust line is the inherited gene. Both should be pulled toward 0.50 when variation is available.
-                                </p>
+                                <p className="text-[11px] text-ess">Live except reset-marked</p>
                             </div>
-                            <ChartShell>
-                                <LineHistoryChart data={display.history} />
-                            </ChartShell>
-                        </div>
 
-                        <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                <div>
-                                    <p className="text-sm uppercase tracking-[0.28em] text-ess">Secondary chart</p>
-                                    <h2 className="mt-2 font-display text-3xl text-ink">Gene distribution histogram</h2>
-                                </div>
-                                <p className="max-w-xl text-sm leading-6 text-ess">
-                                    A wide distribution gives selection room to work. Near equilibrium, the center of gravity should bunch around 0.50 even while mutation keeps a small spread alive.
-                                </p>
-                            </div>
-                            <ChartShell>
-                                <HistogramChart data={display.histogram} />
-                            </ChartShell>
-                        </div>
-                    </div>
-
-                    <div className="space-y-8">
-                        <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                            <p className="text-sm uppercase tracking-[0.28em] text-ess">Starting conditions</p>
-                            <h2 className="mt-2 font-display text-3xl text-ink">Presets and controls</h2>
-                            <p className="mt-3 text-sm leading-6 text-ess">
-                                Mutation, fertility, population cap, and speed update immediately. Starting gene and founder variance update the next time you reset.
-                            </p>
-
-                            <div className="mt-6 flex flex-wrap gap-3">
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 <PresetButton preset={PRESETS.male} active={selectedPreset === 'male'} onClick={() => applyPreset('male')} />
                                 <PresetButton preset={PRESETS.female} active={selectedPreset === 'female'} onClick={() => applyPreset('female')} />
                                 <PresetButton preset={PRESETS.balanced} active={selectedPreset === 'balanced'} onClick={() => applyPreset('balanced')} />
                                 <PresetButton preset={PRESETS.custom} active={selectedPreset === 'custom'} onClick={() => setSelectedPreset('custom')} />
                             </div>
 
-                            <div className="mt-6 space-y-4">
+                            <div className="mt-4 space-y-3">
                                 <SliderControl
                                     label="Starting sex ratio gene"
                                     value={controls.startGene}
@@ -736,7 +706,7 @@ function FisherSexRatioSimulator() {
                                     max={1}
                                     step={0.01}
                                     delayed={true}
-                                    hint="Initial mean gene for the founder generation. This is the probability any child is born male."
+                                    hint="Founder mean male probability."
                                     formatter={(value) => value.toFixed(2)}
                                     onChange={(value) => {
                                         setSelectedPreset('custom');
@@ -750,7 +720,7 @@ function FisherSexRatioSimulator() {
                                     max={0.2}
                                     step={0.005}
                                     delayed={true}
-                                    hint="Founder spread around the mean. Without variance, selection has very little raw material to work on at first."
+                                    hint="Spread around the founder mean."
                                     formatter={(value) => value.toFixed(3)}
                                     onChange={(value) => {
                                         setSelectedPreset('custom');
@@ -763,7 +733,7 @@ function FisherSexRatioSimulator() {
                                     min={0}
                                     max={0.1}
                                     step={0.002}
-                                    hint="Gaussian noise added to the inherited parental average."
+                                    hint="Noise added to inherited genes."
                                     formatter={(value) => value.toFixed(3)}
                                     onChange={(value) => updateControl('mutationStd', value)}
                                 />
@@ -773,7 +743,7 @@ function FisherSexRatioSimulator() {
                                     min={2}
                                     max={10}
                                     step={1}
-                                    hint="Each matched pair produces this many offspring before culling."
+                                    hint="Children before culling."
                                     formatter={(value) => Math.round(value)}
                                     onChange={(value) => updateControl('offspringPerPair', value)}
                                 />
@@ -783,7 +753,7 @@ function FisherSexRatioSimulator() {
                                     min={50}
                                     max={1000}
                                     step={10}
-                                    hint="If the new generation overshoots this cap, random culling trims it back."
+                                    hint="Random cap after reproduction."
                                     formatter={(value) => Math.round(value)}
                                     onChange={(value) => updateControl('maxPopulation', value)}
                                 />
@@ -793,84 +763,118 @@ function FisherSexRatioSimulator() {
                                     min={0.1}
                                     max={20}
                                     step={0.1}
-                                    hint="Generations per second. The rules stay discrete; only playback rate changes."
+                                    hint="Generations per second."
                                     formatter={(value) => `${value.toFixed(1)}x`}
                                     onChange={(value) => updateControl('speed', value)}
                                 />
                             </div>
                         </div>
 
-                        <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                            <p className="text-sm uppercase tracking-[0.28em] text-ess">Population snapshot</p>
-                            <h2 className="mt-2 font-display text-3xl text-ink">Stats panel</h2>
-                            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Snapshot</p>
+                            <h2 className="mt-1 font-display text-2xl text-ink">Population state</h2>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                                 <StatCard label="Generation" value={display.generation} detail="One tick equals one generation." />
                                 <StatCard label="Population" value={stats.total} detail={`${stats.maleCount} male, ${stats.femaleCount} female`} />
                                 <StatCard label="Sex ratio" value={formatPercent(stats.sexRatioMale)} detail="Proportion of living agents that are male." />
                                 <StatCard label="Mean gene" value={stats.meanGene.toFixed(4)} detail="Average inherited male-birth probability." />
-                                <StatCard label="Gene std. dev." value={stats.geneStd.toFixed(4)} detail="How wide the current distribution remains." />
-                                <StatCard label="ESS distance" value={Math.abs(stats.meanGene - 0.5).toFixed(4)} detail="Absolute gap between the mean gene and 0.50." />
+                                <StatCard label="Gene std. dev." value={stats.geneStd.toFixed(4)} detail="Current spread of heritable bias." />
+                                <StatCard label="ESS distance" value={Math.abs(stats.meanGene - 0.5).toFixed(4)} detail="Absolute gap from 0.50." />
                             </div>
                         </div>
+                    </div>
 
-                        <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                            <div className="flex items-end justify-between gap-4">
+                    <div className="space-y-5 xl:order-2">
+                        <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                                 <div>
-                                    <p className="text-sm uppercase tracking-[0.28em] text-ess">Event log</p>
-                                    <h2 className="mt-2 font-display text-3xl text-ink">Notable transitions</h2>
+                                    <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Primary chart</p>
+                                    <h2 className="mt-1 font-display text-2xl text-ink sm:text-3xl">Population sex ratio over time</h2>
                                 </div>
-                                <p className="text-sm text-ess">Newest first</p>
+                                <p className="max-w-xl text-xs leading-5 text-ess sm:text-sm sm:leading-6">
+                                    Blue is the actual sex ratio. Rust is the inherited gene. Both should move toward 0.50.
+                                </p>
                             </div>
-                            <div className="log-scroll mt-6 max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                                {display.eventLog.map((entry) => (
-                                    <div key={entry.id} className={`rounded-2xl border-l-4 px-4 py-3 text-sm leading-6 text-ink ${toneClass(entry.tone)}`}>
-                                        {entry.label}
+                            <ChartShell>
+                                <LineHistoryChart data={display.history} />
+                            </ChartShell>
+                        </div>
+
+                        <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
+                            <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                    <div>
+                                        <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Secondary chart</p>
+                                        <h2 className="mt-1 font-display text-2xl text-ink sm:text-3xl">Gene distribution histogram</h2>
                                     </div>
-                                ))}
+                                    <p className="max-w-xl text-xs leading-5 text-ess sm:text-sm sm:leading-6">
+                                        Selection works on the spread you see here. Near equilibrium, the pile should center on 0.50.
+                                    </p>
+                                </div>
+                                <ChartShell>
+                                    <HistogramChart data={display.histogram} />
+                                </ChartShell>
+                            </div>
+
+                            <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                                <div className="flex items-end justify-between gap-4">
+                                    <div>
+                                        <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Event log</p>
+                                        <h2 className="mt-1 font-display text-2xl text-ink">Key events</h2>
+                                    </div>
+                                    <p className="text-[11px] text-ess">Newest first</p>
+                                </div>
+                                <div className="log-scroll mt-4 max-h-[356px] space-y-2 overflow-y-auto pr-1">
+                                    {display.eventLog.map((entry) => (
+                                        <div key={entry.id} className={`rounded-2xl border-l-4 px-3 py-2.5 text-xs leading-6 text-ink sm:text-sm ${toneClass(entry.tone)}`}>
+                                            {entry.label}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <section className="mt-8 grid gap-8 lg:grid-cols-2">
-                    <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                        <p className="text-sm uppercase tracking-[0.28em] text-ess">How to read it</p>
-                        <h2 className="mt-2 font-display text-3xl text-ink">What this demonstrates</h2>
-                        <div className="mt-6 grid gap-4 text-sm leading-6 text-ess">
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                <section className="mt-5 grid gap-5 lg:grid-cols-2">
+                    <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                        <p className="text-[11px] uppercase tracking-[0.28em] text-ess">How to read it</p>
+                        <h2 className="mt-1 font-display text-2xl text-ink sm:text-3xl">What this demonstrates</h2>
+                        <div className="mt-4 grid gap-3 text-sm leading-6 text-ess">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 <p className="font-medium text-ink">Selection without foresight</p>
-                                <p className="mt-2">No lineage knows the target is 0.50. Relative reproductive success does the work automatically.</p>
+                                <p className="mt-1.5">No lineage knows the target is 0.50. Relative reproductive success does the work automatically.</p>
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 <p className="font-medium text-ink">Frequency dependence</p>
-                                <p className="mt-2">If one sex is rare, parents who generate more of that sex gain more grandchildren through the pairing bottleneck.</p>
+                                <p className="mt-1.5">If one sex is rare, parents who generate more of that sex gain more grandchildren through the pairing bottleneck.</p>
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 <p className="font-medium text-ink">Genes converge, not just counts</p>
-                                <p className="mt-2">The inherited bias itself moves toward 0.50, so the chart tracks selection on heritable variation rather than a one-off demographic correction.</p>
+                                <p className="mt-1.5">The inherited bias itself moves toward 0.50, so the chart tracks selection on heritable variation rather than a one-off demographic correction.</p>
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 <p className="font-medium text-ink">Stability around the ESS</p>
-                                <p className="mt-2">Once the mean gene is near parity, directional pressure weakens and only mutation plus finite-population noise keep it moving.</p>
+                                <p className="mt-1.5">Once the mean gene is near parity, directional pressure weakens and only mutation plus finite-population noise keep it moving.</p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="rounded-[2rem] border border-line/70 bg-panel p-6 shadow-panel backdrop-blur sm:p-8">
-                        <p className="text-sm uppercase tracking-[0.28em] text-ess">Mechanics</p>
-                        <h2 className="mt-2 font-display text-3xl text-ink">Model assumptions</h2>
-                        <div className="mt-6 space-y-4 text-sm leading-6 text-ess">
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                    <div className="rounded-[1.8rem] border border-line/70 bg-panel p-5 shadow-panel backdrop-blur sm:p-6">
+                        <p className="text-[11px] uppercase tracking-[0.28em] text-ess">Mechanics</p>
+                        <h2 className="mt-1 font-display text-2xl text-ink sm:text-3xl">Model assumptions</h2>
+                        <div className="mt-4 space-y-3 text-sm leading-6 text-ess">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 Each generation is non-overlapping. Parents reproduce once, offspring inherit the average parental gene plus mutation, and then the parental generation dies.
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 Fitness is implicit, not hard-coded. When males are rare, more of them find mates. When females are rare, the same logic flips.
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
                                 Equal offspring cost is assumed in this version, so equal investment reduces to equal numbers. That is why the ESS reference line sits at 0.50.
                             </div>
-                            <div className="rounded-3xl border border-line/80 bg-white/70 p-5">
-                                Extreme founder settings can still crash the population. That is not a bug in the model: if one sex vanishes completely, reproduction stops.
+                            <div className="rounded-3xl border border-line/80 bg-white/70 p-4">
+                                Extreme founder settings can still crash the population. If one sex vanishes completely, reproduction stops.
                             </div>
                         </div>
                     </div>

@@ -16,7 +16,7 @@
             <div>
                 <p class="eyebrow">Reciprocal Altruism</p>
                 <h1>Sucker, Cheater, Grudger</h1>
-                <p class="lede">A compact population simulator for the repeated prisoner&apos;s dilemma logic from chapter 10 of <em>The Selfish Gene</em>. Controls and live system state come first; interpretation comes after.</p>
+                <p class="lede">Repeated prisoner&apos;s dilemma dynamics from chapter 10 of <em>The Selfish Gene</em>.</p>
             </div>
             <div class="topbar-actions">
                 <a href="../index.html" class="text-link">Back to home</a>
@@ -68,11 +68,17 @@
                         <p class="section-kicker">History</p>
                         <h2>Population Trajectory</h2>
                     </div>
-                    <div class="legend-row">
-                        <span class="legend-chip sucker">Sucker</span>
-                        <span class="legend-chip cheater">Cheater</span>
-                        <span class="legend-chip grudger">Grudger</span>
-                        <span class="legend-chip cooperation">Cooperation</span>
+                    <div class="viz-head-actions">
+                        <div class="button-row viz-button-row">
+                            <button type="button" id="pause-button" class="primary-button">Pause</button>
+                            <button type="button" id="step-button" class="ghost-button">Step</button>
+                        </div>
+                        <div class="legend-row compact-legend-row">
+                            <span class="legend-chip sucker">Sucker</span>
+                            <span class="legend-chip cheater">Cheater</span>
+                            <span class="legend-chip grudger">Grudger</span>
+                            <span class="legend-chip cooperation">Cooperation</span>
+                        </div>
                     </div>
                 </div>
                 <canvas id="history-canvas" width="920" height="300" aria-label="Strategy frequencies over time"></canvas>
@@ -86,8 +92,6 @@
                     <h2>Population Setup</h2>
                 </div>
                 <div class="control-actions">
-                    <button type="button" id="pause-button" class="primary-button">Pause</button>
-                    <button type="button" id="step-button" class="ghost-button">Step</button>
                     <button type="button" id="apply-button" class="primary-button">Reset using current controls</button>
                 </div>
             </div>

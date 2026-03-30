@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive sucker, cheater, and grudger simulation based on reciprocal altruism in chapter 10 of The Selfish Gene.">
+    <title>Sucker, Cheater, Grudger Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="sim.css">
+</head>
+<body>
+    <main class="sim-page">
+        <header class="topbar panel">
+            <div>
+                <p class="eyebrow">Reciprocal Altruism</p>
+                <h1>Sucker, Cheater, Grudger</h1>
+                <p class="lede">A compact population simulator for the repeated prisoner&apos;s dilemma logic from chapter 10 of <em>The Selfish Gene</em>. Controls and live system state come first; interpretation comes after.</p>
+            </div>
+            <div class="topbar-actions">
+                <a href="../index.html" class="text-link">Back to home</a>
+                <button type="button" id="reset-top" class="ghost-button">Reset with controls</button>
+            </div>
+        </header>
+
+        <section class="top-state-grid">
+            <section class="panel state-panel">
+                <div class="section-head compact">
+                    <div>
+                        <p class="section-kicker">System State</p>
+                        <h2>Current Population</h2>
+                    </div>
+                    <span class="badge" id="dominant-badge"></span>
+                </div>
+
+                <div class="metric-grid" id="metric-grid"></div>
+
+                <div class="ribbon-shell">
+                    <div class="ribbon-head">
+                        <h3>Population strip</h3>
+                        <span class="subtle" id="population-caption"></span>
+                    </div>
+                    <div class="population-ribbon" id="population-ribbon" aria-label="Population composition"></div>
+                </div>
+
+                <div class="bar-group">
+                    <div>
+                        <div class="bar-head">
+                            <h3>Strategy share</h3>
+                            <span class="subtle">Current generation</span>
+                        </div>
+                        <div id="share-bars" class="bar-stack"></div>
+                    </div>
+                    <div>
+                        <div class="bar-head">
+                            <h3>Average payoff</h3>
+                            <span class="subtle">Last generation</span>
+                        </div>
+                        <div id="payoff-bars" class="bar-stack"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel chart-panel top-chart-panel">
+                <div class="section-head compact">
+                    <div>
+                        <p class="section-kicker">History</p>
+                        <h2>Population Trajectory</h2>
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-chip sucker">Sucker</span>
+                        <span class="legend-chip cheater">Cheater</span>
+                        <span class="legend-chip grudger">Grudger</span>
+                        <span class="legend-chip cooperation">Cooperation</span>
+                    </div>
+                </div>
+                <canvas id="history-canvas" width="920" height="300" aria-label="Strategy frequencies over time"></canvas>
+            </section>
+        </section>
+
+        <section class="panel controls-panel compact-controls-panel">
+            <div class="controls-topbar">
+                <div>
+                    <p class="section-kicker">Controls</p>
+                    <h2>Population Setup</h2>
+                </div>
+                <div class="control-actions">
+                    <button type="button" id="pause-button" class="primary-button">Pause</button>
+                    <button type="button" id="step-button" class="ghost-button">Step</button>
+                    <button type="button" id="apply-button" class="primary-button">Reset using current controls</button>
+                </div>
+            </div>
+
+            <div class="preset-row" id="preset-row"></div>
+
+            <form id="controls-form" class="controls-form compact-controls-form">
+                <div class="weight-grid compact-weight-grid">
+                    <div class="weight-card sucker">
+                        <div class="weight-head">
+                            <label for="sucker-weight">Sucker seed</label>
+                            <span class="share" id="sucker-share-value"></span>
+                        </div>
+                        <input id="sucker-weight" name="suckerWeight" type="range" min="0" max="100" step="1">
+                        <div class="weight-meta">
+                            <span class="value" id="sucker-weight-value"></span>
+                        </div>
+                    </div>
+                    <div class="weight-card cheater">
+                        <div class="weight-head">
+                            <label for="cheater-weight">Cheater seed</label>
+                            <span class="share" id="cheater-share-value"></span>
+                        </div>
+                        <input id="cheater-weight" name="cheaterWeight" type="range" min="0" max="100" step="1">
+                        <div class="weight-meta">
+                            <span class="value" id="cheater-weight-value"></span>
+                        </div>
+                    </div>
+                    <div class="weight-card grudger">
+                        <div class="weight-head">
+                            <label for="grudger-weight">Grudger seed</label>
+                            <span class="share" id="grudger-share-value"></span>
+                        </div>
+                        <input id="grudger-weight" name="grudgerWeight" type="range" min="0" max="100" step="1">
+                        <div class="weight-meta">
+                            <span class="value" id="grudger-weight-value"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="compact-grid compact-slider-grid" id="slider-grid"></div>
+            </form>
+
+            <div class="controls-footer compact-controls-footer">
+                <p class="subtle">Population mix, match structure, and mutation apply on reset. Playback speed updates immediately.</p>
+            </div>
+        </section>
+
+        <section class="analysis-grid">
+            <aside class="stack-column">
+                <section class="panel matrix-panel">
+                    <div class="section-head compact">
+                        <div>
+                            <p class="section-kicker">Match Logic</p>
+                            <h2>Per-Match Payoffs</h2>
+                        </div>
+                        <span class="subtle" id="rounds-summary"></span>
+                    </div>
+                    <div id="payoff-matrix"></div>
+                </section>
+
+                <section class="panel log-panel">
+                    <div class="section-head compact">
+                        <div>
+                            <p class="section-kicker">Transitions</p>
+                            <h2>Event Log</h2>
+                        </div>
+                        <span class="subtle">Latest regime changes</span>
+                    </div>
+                    <div id="event-log" class="event-log" aria-live="polite"></div>
+                </section>
+            </aside>
+        </section>
+
+        <section class="panel notes-panel">
+            <div class="section-head compact">
+                <div>
+                    <p class="section-kicker">Reading The Model</p>
+                    <h2>What This Simulation Is Doing</h2>
+                </div>
+            </div>
+            <div class="notes-grid">
+                <article>
+                    <h3>Sucker</h3>
+                    <p>Always cooperates. It does best when surrounded by other cooperators and worst when exposed to persistent cheaters.</p>
+                </article>
+                <article>
+                    <h3>Cheater</h3>
+                    <p>Always defects. It exploits suckers immediately, but when cheaters become common they mostly inflict low-payoff mutual defection on one another.</p>
+                </article>
+                <article>
+                    <h3>Grudger</h3>
+                    <p>Cooperates until its partner defects once, then defects for the rest of that repeated match. It can sustain cooperation with itself while punishing cheaters after first contact.</p>
+                </article>
+                <article>
+                    <h3>Evolution Step</h3>
+                    <p>Each generation consists of random repeated matches, score accumulation, then fitness-proportionate reproduction with mutation. The point is not exact biology, but the strategic logic of repeated interaction.</p>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <script src="sim.js"></script>
+</body>
+</html>

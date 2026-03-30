@@ -161,6 +161,7 @@ table {
 
 .top-state-grid {
     grid-template-columns: minmax(380px, 0.92fr) minmax(0, 1.08fr);
+    align-items: start;
     margin-bottom: 12px;
 }
 
@@ -351,15 +352,28 @@ input[type="range"] {
 }
 
 .metric-card {
-    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 10px;
+    min-height: 0;
+    border-radius: 999px;
 }
 
 .metric-value {
-    display: block;
-    margin-top: 3px;
-    font-size: 1.2rem;
+    display: inline-block;
+    margin-top: 0;
+    font-size: 0.98rem;
     font-weight: 600;
     color: var(--ink);
+    white-space: nowrap;
+}
+
+.metric-card .subtle {
+    font-size: 0.82rem;
+    line-height: 1.2;
+    white-space: nowrap;
 }
 
 .badge {
@@ -376,28 +390,43 @@ input[type="range"] {
 .ribbon-shell,
 .bar-group {
     display: grid;
-    gap: 8px;
+    gap: 6px;
+}
+
+.state-panel .ribbon-head h3,
+.state-panel .bar-head h3 {
+    font-size: 0.88rem;
+}
+
+.state-panel .subtle {
+    font-size: 0.8rem;
+}
+
+.state-panel .ribbon-head,
+.state-panel .bar-head {
+    margin-bottom: 2px;
 }
 
 .population-ribbon {
     display: grid;
     grid-template-columns: repeat(20, minmax(0, 1fr));
-    gap: 3px;
+    gap: 2px;
 }
 
 .population-cell {
     aspect-ratio: 1 / 1;
-    border-radius: 6px;
+    border-radius: 5px;
     background: var(--line);
 }
 
 .bar-stack {
     display: grid;
-    gap: 8px;
+    gap: 6px;
 }
 
 .top-chart-panel {
     min-width: 0;
+    align-self: start;
 }
 
 .top-chart-panel #history-canvas {
@@ -406,17 +435,21 @@ input[type="range"] {
 
 .bar-row {
     display: grid;
-    grid-template-columns: 76px minmax(0, 1fr) 56px;
-    gap: 8px;
+    grid-template-columns: 68px minmax(0, 1fr) 50px;
+    gap: 6px;
     align-items: center;
 }
 
 .bar-track {
     position: relative;
     overflow: hidden;
-    height: 12px;
+    height: 10px;
     border-radius: 999px;
     background: rgba(216, 204, 184, 0.55);
+}
+
+.bar-row span {
+    font-size: 0.82rem;
 }
 
 .bar-fill {
@@ -573,6 +606,10 @@ input[type="range"] {
     .notes-grid,
     .stack-column {
         grid-template-columns: 1fr;
+    }
+
+    .metric-card {
+        border-radius: 16px;
     }
 
     .bar-row {

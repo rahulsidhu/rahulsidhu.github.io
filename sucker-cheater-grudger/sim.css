@@ -376,6 +376,17 @@ input[type="range"] {
     white-space: nowrap;
 }
 
+.state-panel h2,
+.top-chart-panel h2 {
+    font-size: 1.1rem;
+}
+
+.state-panel .section-kicker,
+.top-chart-panel .section-kicker {
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+}
+
 .badge {
     display: inline-flex;
     align-items: center;
@@ -385,6 +396,7 @@ input[type="range"] {
     background: rgba(255, 250, 242, 0.7);
     color: var(--muted);
     white-space: nowrap;
+    font-size: 0.86rem;
 }
 
 .ribbon-shell,
@@ -431,6 +443,55 @@ input[type="range"] {
 
 .top-chart-panel #history-canvas {
     height: 250px;
+}
+
+@media (max-width: 1440px) {
+    .state-panel,
+    .top-chart-panel {
+        padding: 14px;
+    }
+
+    .state-panel h2,
+    .top-chart-panel h2 {
+        font-size: 0.96rem;
+    }
+
+    .metric-grid {
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .metric-card {
+        gap: 8px;
+        padding: 6px 8px;
+    }
+
+    .metric-card .subtle {
+        font-size: 0.74rem;
+    }
+
+    .metric-value {
+        font-size: 0.88rem;
+    }
+
+    .badge {
+        padding: 6px 10px;
+        font-size: 0.78rem;
+    }
+
+    .state-panel .section-head,
+    .top-chart-panel .section-head {
+        margin-bottom: 8px;
+    }
+
+    .state-panel .ribbon-head h3,
+    .state-panel .bar-head h3 {
+        font-size: 0.84rem;
+    }
+
+    .state-panel .subtle {
+        font-size: 0.76rem;
+    }
 }
 
 .bar-row {

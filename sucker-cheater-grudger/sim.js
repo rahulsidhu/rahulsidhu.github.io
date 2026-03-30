@@ -536,11 +536,11 @@
     }
 
     function formatPercent(value) {
-        return (value * 100).toFixed(1) + '%';
+        return Math.round(value * 100) + '%';
     }
 
     function formatNumber(value) {
-        return value.toFixed(2).replace(/\.00$/, '');
+        return Math.round(value).toString();
     }
 
     function renderPresets() {
@@ -647,7 +647,7 @@
         const metrics = [
             { label: 'Generation', value: generationLabel },
             { label: 'Cooperation', value: formatPercent(cooperationRate) },
-            { label: 'Mean payoff', value: state.engine.lastMeanPayoff.toFixed(2) },
+            { label: 'Mean payoff', value: formatNumber(state.engine.lastMeanPayoff) },
             { label: 'Strategies present', value: String(diversity) }
         ];
 
